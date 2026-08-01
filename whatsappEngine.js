@@ -4,6 +4,7 @@
 
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
+const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 
@@ -78,6 +79,29 @@ class WhatsAppEngine {
         this.accounts.set(accId, accData);
         this.broadcastState();
 
+        let chromePath = null;
+        try {
+            chromePath = puppeteer.executablePath();
+        } catch (e) {}
+
+        const puppeteerConfig = {
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-accelerated-2d-canvas',
+                '--no-first-run',
+                '--no-zygote',
+                '--disable-gpu',
+                '--disable-features=IsolateOrigins,site-per-process'
+            ]
+        };
+
+        if (chromePath && fs.existsSync(chromePath)) {
+            puppeteerConfig.executablePath = chromePath;
+        }
+
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: accId,
@@ -87,19 +111,7 @@ class WhatsAppEngine {
                 type: 'remote',
                 remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
             },
-            puppeteer: {
-                headless: true,
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-accelerated-2d-canvas',
-                    '--no-first-run',
-                    '--no-zygote',
-                    '--disable-gpu',
-                    '--disable-features=IsolateOrigins,site-per-process'
-                ]
-            }
+            puppeteer: puppeteerConfig
         });
 
         accData.client = client;

@@ -1,10 +1,11 @@
 {
-  "name": "whatsapp-automation-tool",
+  "name": "autowhatsapp-pro",
   "version": "1.0.0",
-  "description": "WhatsApp Marketing & Campaign Automation Desktop App",
+  "description": "AutoWhatsApp Pro Multi-Account Cloud Engine",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "npx puppeteer install"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +14,7 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "pino": "^8.20.0",
+    "puppeteer": "^22.6.0",
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.5",
     "whatsapp-web.js": "^1.26.0",
