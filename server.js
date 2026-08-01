@@ -20,6 +20,8 @@ const XLSX = require('xlsx');
 const WhatsAppEngine = require('./whatsappEngine');
 const QueueManager = require('./QueueManager');
 
+const fs = require('fs');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -32,24 +34,46 @@ app.use(cors());
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
+
+app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/socket.io') || req.path.startsWith('/api')) {
+        return next();
+    }
+    const publicIndexPath = path.join(__dirname, 'public', 'index.html');
+    if (fs.existsSync(publicIndexPath)) {
+        return res.sendFile(publicIndexPath);
+    }
+    const rootIndexPath = path.join(__dirname, 'index.html');
+    if (fs.existsSync(rootIndexPath)) {
+        return res.sendFile(rootIndexPath);
+    }
+    res.send('AutoWhatsApp Pro Server Ready');
+});
 
 // Instantiate Core Engines
 const waEngine = new WhatsAppEngine();
 const queueMgr = new QueueManager();
 
-// Initialize Multi-Account WhatsApp Engine
-waEngine.init({
-    onAccountsUpdate: (accountsList) => {
-        io.emit('accounts_update', accountsList);
-    },
-    onAutoReplyLog: (logData) => {
-        io.emit('campaign_log', {
-            type: 'success',
-            timestamp: new Date().toLocaleTimeString(),
-            text: `🤖 [Auto-Responder] Responded to +${logData.from} for keyword "${logData.keyword}"`
+// Defer Multi-Account WhatsApp Engine Init so Express binds PORT instantly for Cloud Health Checks
+setTimeout(() => {
+    try {
+        waEngine.init({
+            onAccountsUpdate: (accountsList) => {
+                io.emit('accounts_update', accountsList);
+            },
+            onAutoReplyLog: (logData) => {
+                io.emit('campaign_log', {
+                    type: 'success',
+                    timestamp: new Date().toLocaleTimeString(),
+                    text: `🤖 [Auto-Responder] Responded to +${logData.from} for keyword "${logData.keyword}"`
+                });
+            }
         });
+    } catch (err) {
+        console.error('⚠️ WhatsApp Engine deferred init error:', err.message);
     }
-});
+}, 2000);
 
 // Socket.io Real-time Connection Handler
 io.on('connection', (socket) => {
@@ -180,9 +204,9 @@ app.post('/api/parse-excel', (req, res) => {
 });
 
 // Start Express HTTP Server
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
     console.log(`🚀 AUTOWHATSAPP PRO ALL-IN-ONE SYSTEM IS READY!`);
-    console.log(`🔗 Web Dashboard URL: http://localhost:${PORT}`);
+    console.log(`🔗 Web Dashboard URL: http://0.0.0.0:${PORT}`);
     console.log(`====================================================`);
 });
