@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AutoWhatsApp Pro - Official Mobile App & Marketing Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- INSTANT TAB SWITCHER & HARDWARE BACK BUTTON LOGIC -->
+    <script>
+        var currentActiveTab = 'tab-send';
+
+        function switchMainTab(tabId) {
+            currentActiveTab = tabId;
+            var tabs = document.querySelectorAll('.tab-view');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.add('hidden');
+            }
+
+            var selectedView = document.getElementById(tabId);
+            if (selectedView) selectedView.classList.remove('hidden');
+
+            var navBtns = document.querySelectorAll('.nav-tab-item');
+            for (var j = 0; j < navBtns.length; j++) {
+                navBtns[j].classList.remove('active');
+            }
+
+            var activeBtn = document.querySelector('.nav-tab-item[data-tab="' + tabId + '"]');
+            if (activeBtn) activeBtn.classList.add('active');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Handles Android Hardware Back Button
+        window.handleAndroidBackPress = function() {
+            if (currentActiveTab !== 'tab-send') {
+                switchMainTab('tab-send');
+                return true; // Handled back press gracefully inside app
+            }
+            return false; // On main tab, allow double-tap back to exit
+        };
+
+        // PURE DOM TOGGLE FOR LOGIN BOX CARDS (WORKS 100% INSTANTLY)
+        function selectLoginBoxMode(accId, mode) {
+            var qrBox = document.getElementById('box-qr-' + accId);
+            var phoneBox = document.getElementById('box-phone-' + accId);
+            var qrContainer = document.getElementById('qr-container-' + accId);
+            var phoneContainer = document.getElementById('phone-container-' + accId);
+
+            if (mode === 'QR') {
+                if (qrBox) qrBox.classList.add('active');
+                if (phoneBox) phoneBox.classList.remove('active');
+                if (qrContainer) qrContainer.classList.remove('hidden');
+                if (phoneContainer) phoneContainer.classList.add('hidden');
+            } else if (mode === 'PHONE') {
+                if (phoneBox) phoneBox.classList.add('active');
+                if (qrBox) qrBox.classList.remove('active');
+                if (phoneContainer) phoneContainer.classList.remove('hidden');
+                if (qrContainer) qrContainer.classList.add('hidden');
+            }
+
+            if (window.onLoginModeSwitched) {
+                window.onLoginModeSwitched(accId, mode);
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- TOP STICKY HEADER (SUPER CLEAN - NO EXTRA BUTTONS) -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="logo-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                <div class="logo-text">
+                    <h1 class="logo-title">AutoWhatsApp <span class="logo-pro">Pro</span></h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- STATS OVERVIEW CARDS (2x2 Grid on Mobile) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon total"><i class="fa-solid fa-users"></i></div>
+                <div class="stat-details">
+                    <span class="stat-label">Total Contacts</span>
+                    <h2 class="stat-value" id="statTotal">0</h2>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon sent"><i class="fa-solid fa-paper-plane"></i></div>
+                <div class="stat-details">
+                    <span class="stat-label">Sent</span>
+                    <h2 class="stat-value" id="statSent">0</h2>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon pending"><i class="fa-solid fa-hourglass-half"></i></div>
+                <div class="stat-details">
+                    <span class="stat-label">Pending</span>
+                    <h2 class="stat-value" id="statPending">0</h2>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon failed"><i class="fa-solid fa-circle-exclamation"></i></div>
+                <div class="stat-details">
+                    <span class="stat-label">Failed</span>
+                    <h2 class="stat-value" id="statFailed">0</h2>
+                </div>
+            </div>
+            <div class="stat-card full-width-stat">
+                <div class="stat-icon limit"><i class="fa-solid fa-gauge-high"></i></div>
+                <div class="stat-details">
+                    <span class="stat-label">Active Speed Limit</span>
+                    <h2 class="stat-value" id="statSpeedCap">30 Msgs / Min</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN VIEWS CONTAINER -->
+        <main class="dashboard-views">
+            
+            <!-- ==================================================== -->
+            <!-- TAB 1: SEND CAMPAIGN & EXECUTION VIEW (ACTIVE BY DEFAULT) -->
+            <!-- ==================================================== -->
+            <div class="tab-view" id="tab-send">
+                <div class="dashboard-grid">
+                    <!-- LEFT COLUMN -->
+                    <div class="grid-column left-column">
+                        <!-- CAMPAIGN & MEDIA BUILDER -->
+                        <div class="glass-card config-card" id="sectionCampaign">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-paper-plane"></i> Campaign Message & Media Builder</h3>
+                            </div>
+
+                            <div class="config-form">
+                                <!-- Multi-Sender Mode Selector -->
+                                <div class="form-group">
+                                    <label class="form-label">Multi-Sender Dispatch Mode</label>
+                                    <select id="selectRoutingMode" class="form-select">
+                                        <option value="ROUND_ROBIN">✨ Equal Split / Round-Robin (Distribute messages evenly)</option>
+                                        <option value="SPECIFIC_ACCOUNT">🎯 Specific Account (Send from 1 selected number)</option>
+                                        <option value="CUSTOM_RATIO">📊 Custom Quotas (Set max quota per number)</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group hidden" id="specificAccContainer">
+                                    <label class="form-label">Select Active Sender Account</label>
+                                    <select id="selectSpecificAcc" class="form-select"></select>
+                                </div>
+
+                                <div class="custom-ratio-box hidden" id="customRatioContainer">
+                                    <div class="box-title"><i class="fa-solid fa-list-ol"></i> Set Max Messages Per Account</div>
+                                    <div class="ratio-inputs-grid" id="ratioInputsGrid"></div>
+                                </div>
+
+                                <!-- SECTION A: Message Template Editor -->
+                                <div class="form-group">
+                                    <label class="form-label">📝 1. Campaign Message Text</label>
+                                    <div class="tags-row">
+                                        <span class="tag-chip" onclick="insertTag('{Name}')">+ {Name}</span>
+                                        <span class="tag-chip" onclick="insertTag('{Phone}')">+ {Phone}</span>
+                                        <span class="tag-chip" onclick="insertTag('{App_Link}')">+ {App_Link}</span>
+                                        <span class="tag-chip" onclick="insertTag('{Offer}')">+ {Offer}</span>
+                                    </div>
+                                    <textarea id="messageTemplate" class="form-textarea" rows="4" placeholder="Hello {Name}, Welcome! Download our App here: {App_Link}&#10;Reply 1 for Buy Now | Reply HI for Support"></textarea>
+                                </div>
+
+                                <!-- SECTION B: Media File Attachment -->
+                                <div class="form-group">
+                                    <label class="form-label">📷 2. Attach Media (Image / Video / PDF)</label>
+                                    <div class="media-attach-box" id="mediaAttachBox">
+                                        <input type="file" id="mediaFileInput" accept="image/*,video/mp4,application/pdf" hidden>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="btnPickMedia">
+                                            <i class="fa-solid fa-paperclip"></i> Pick Media File
+                                        </button>
+                                        <span class="media-name-tag" id="mediaNameTag">No File Attached</span>
+                                        <button type="button" class="btn-clear hidden" id="btnClearMedia"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                </div>
+
+                                <!-- Speed Lock Matrix Box -->
+                                <div class="speed-lock-box" id="sectionSpeed">
+                                    <div class="speed-header">
+                                        <span><i class="fa-solid fa-lock"></i> Auto Speed Lock Matrix</span>
+                                        <span class="badge-lock" id="speedLockBadge">1 Acc = 30 msgs/min</span>
+                                    </div>
+                                    <div class="speed-matrix-grid">
+                                        <div class="matrix-item" data-acc="1">1=30m</div>
+                                        <div class="matrix-item" data-acc="2">2=60m</div>
+                                        <div class="matrix-item" data-acc="3">3=100m</div>
+                                        <div class="matrix-item" data-acc="4">4=150m</div>
+                                        <div class="matrix-item" data-acc="5">5=250m</div>
+                                        <div class="matrix-item" data-acc="6">6=350m</div>
+                                        <div class="matrix-item" data-acc="7">7=400m</div>
+                                        <div class="matrix-item" data-acc="8">8=450m</div>
+                                        <div class="matrix-item" data-acc="9">9=500m</div>
+                                        <div class="matrix-item" data-acc="10">10=600m</div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- RIGHT COLUMN -->
+                    <div class="grid-column right-column">
+                        <!-- EXCEL FILE DATA -->
+                        <div class="glass-card excel-card" id="sectionExcel">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-file-excel"></i> Excel Contacts Data</h3>
+                                <span class="file-status-badge" id="fileStatusBadge">No File</span>
+                            </div>
+
+                            <div class="excel-body">
+                                <div class="dropzone" id="dropzone">
+                                    <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                                    <h4>Select Excel (.xlsx, .csv) File</h4>
+                                    <p>Tap to choose from phone</p>
+                                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" hidden>
+                                </div>
+
+                                <div class="table-preview-container hidden" id="tablePreviewContainer">
+                                    <div class="table-actions">
+                                        <span class="preview-info" id="previewInfo">Loaded 0 contacts</span>
+                                        <button class="btn btn-secondary btn-sm" id="btnChangeFile">
+                                            <i class="fa-solid fa-rotate-left"></i> Change File
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="table-scroll">
+                                        <table class="contacts-table" id="contactsTable">
+                                            <thead>
+                                                <tr id="tableHeaderRow">
+                                                    <th>#</th>
+                                                    <th>Name</th>
+                                                    <th>Phone</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tableBody"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- EXECUTION CONTROLS & LOGS -->
+                        <div class="glass-card controls-card" id="sectionControls">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-terminal"></i> Controls & Execution Logs</h3>
+                            </div>
+
+                            <div class="controls-body">
+                                <div class="action-buttons-row">
+                                    <button class="btn btn-success btn-lg btn-full-mobile" id="btnStartCampaign">
+                                        <i class="fa-solid fa-play"></i> Start Campaign
+                                    </button>
+                                    <button class="btn btn-warning btn-lg btn-full-mobile hidden" id="btnPauseCampaign">
+                                        <i class="fa-solid fa-pause"></i> Pause
+                                    </button>
+                                    <button class="btn btn-info btn-lg btn-full-mobile hidden" id="btnResumeCampaign">
+                                        <i class="fa-solid fa-play"></i> Resume
+                                    </button>
+                                    <button class="btn btn-danger-lg btn-full-mobile hidden" id="btnStopCampaign">
+                                        <i class="fa-solid fa-stop"></i> Stop
+                                    </button>
+                                    <button class="btn btn-secondary btn-lg btn-full-mobile" id="btnExportReport">
+                                        <i class="fa-solid fa-download"></i> Export Report
+                                    </button>
+                                </div>
+
+                                <div class="terminal-container">
+                                    <div class="terminal-header">
+                                        <span><i class="fa-solid fa-square-terminal"></i> Execution Console</span>
+                                        <button class="btn-clear" onclick="clearTerminalLogs()">Clear</button>
+                                    </div>
+                                    <div class="terminal-body" id="terminalLogs">
+                                        <div class="log-line system">[System] AutoWhatsApp Pro ready.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================================================== -->
+            <!-- TAB 2: REPLY / AUTO-RESPONDER RULES VIEW -->
+            <!-- ==================================================== -->
+            <div class="tab-view hidden" id="tab-reply">
+                <div class="glass-card auto-responder-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-robot" style="color:var(--primary);"></i> Auto-Responder Rules Manager</h3>
+                        <button type="button" class="btn btn-primary btn-sm" id="btnAddRule">
+                            <i class="fa-solid fa-plus"></i> Add New Rule
+                        </button>
+                    </div>
+
+                    <div class="config-form">
+                        <p class="auto-resp-hint" style="font-size:12px; color:var(--text-muted);">Automatically reply to incoming WhatsApp messages when customers type specific keywords (e.g. 1, BUY, HI, PRICE).</p>
+
+                        <div class="rules-list" id="rulesList" style="max-height: 500px;">
+                            <!-- Dynamic Rules List -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================================================== -->
+            <!-- TAB 3: WHATSAPP ACCOUNTS MANAGER VIEW -->
+            <!-- ==================================================== -->
+            <div class="tab-view hidden" id="tab-accounts">
+                <div class="glass-card accounts-card">
+                    <div class="card-header">
+                        <h3><i class="fa-brands fa-whatsapp" style="color:var(--wa-green);"></i> WhatsApp Accounts Manager</h3>
+                        <div class="acc-header-actions">
+                            <button class="btn btn-primary btn-sm" type="button" id="btnAddAccount">
+                                <i class="fa-solid fa-plus"></i> Add Account (<span id="accCountTag">1</span>/10)
+                            </button>
+                            <button class="btn btn-danger-soft btn-sm hidden" type="button" id="btnLogoutAll">
+                                <i class="fa-solid fa-power-off"></i> Logout All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="accounts-grid" id="accountsGrid" style="margin-top:10px;">
+                        <!-- Default 2-Box Grid Card for Slot 1 -->
+                        <div class="account-card" id="acc-card-acc_1">
+                            <div class="acc-row-top">
+                                <div class="acc-info-left">
+                                    <div class="acc-avatar"><i class="fa-brands fa-whatsapp"></i></div>
+                                    <div class="acc-details">
+                                        <div class="acc-name">WhatsApp Account Slot 1</div>
+                                        <div class="acc-phone">Disconnected</div>
+                                        <div class="acc-status-tag disconnected"><i class="fa-solid fa-circle"></i> Ready to Login</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 2-BOX GRID SELECTION -->
+                            <div class="login-grid-2box">
+                                <div class="login-box-card" id="box-qr-acc_1" onclick="selectLoginBoxMode('acc_1', 'QR')">
+                                    <div class="login-box-icon"><i class="fa-solid fa-qrcode"></i></div>
+                                    <div class="login-box-title">Scan QR Code</div>
+                                    <div class="login-box-sub">Tap to scan QR using phone</div>
+                                </div>
+
+                                <div class="login-box-card phone-card" id="box-phone-acc_1" onclick="selectLoginBoxMode('acc_1', 'PHONE')">
+                                    <div class="login-box-icon"><i class="fa-solid fa-key"></i></div>
+                                    <div class="login-box-title">Phone Pair Code</div>
+                                    <div class="login-box-sub">Tap for 8-digit code (****-****)</div>
+                                </div>
+                            </div>
+
+                            <!-- QR DISPLAY CONTAINER (HIDDEN UNTIL TAPPED) -->
+                            <div class="qr-container-box hidden" id="qr-container-acc_1" style="margin-top:10px;">
+                                <div class="acc-loading-box" id="qr-box-inner-acc_1" style="padding: 14px;">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Loading WhatsApp QR Code... Please wait 3 seconds.
+                                </div>
+                            </div>
+
+                            <!-- PHONE PAIRING CONTAINER (HIDDEN UNTIL TAPPED) -->
+                            <div class="pairing-input-box hidden" id="phone-container-acc_1" style="margin-top:10px;">
+                                <label class="form-label" style="font-size:11px;">Enter Phone Number with Country Code (e.g. 917340216019)</label>
+                                <div class="pairing-input-row">
+                                    <input type="tel" id="phone-input-acc_1" class="pairing-input" placeholder="917340216019">
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="submitPairingCodeRequest('acc_1')">Get 8-Digit Code</button>
+                                </div>
+                                <div id="code-result-acc_1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ULTRA-PROFESSIONAL FLOATING BOTTOM NAVIGATION BAR -->
+    <nav class="bottom-nav-container">
+        <div class="bottom-nav-bar">
+            <button type="button" class="nav-tab-item active" data-tab="tab-send" onclick="switchMainTab('tab-send')">
+                <div class="nav-icon-box"><i class="fa-solid fa-paper-plane"></i></div>
+                <span class="nav-label">Send</span>
+            </button>
+
+            <button type="button" class="nav-tab-item" data-tab="tab-reply" onclick="switchMainTab('tab-reply')">
+                <div class="nav-icon-box"><i class="fa-solid fa-robot"></i></div>
+                <span class="nav-label">Reply</span>
+            </button>
+
+            <button type="button" class="nav-tab-item" data-tab="tab-accounts" onclick="switchMainTab('tab-accounts')">
+                <div class="nav-icon-box"><i class="fa-brands fa-whatsapp"></i></div>
+                <span class="nav-label">Accounts</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- SheetJS Client-side Excel Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Socket.io Library -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
