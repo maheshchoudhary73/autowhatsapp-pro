@@ -1,23 +1,22 @@
 {
   "name": "autowhatsapp-pro",
   "version": "1.0.0",
-  "description": "AutoWhatsApp Pro Multi-Account Cloud Engine",
+  "description": "AutoWhatsApp Pro Multi-Account Cloud Engine with Native WebSockets",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "postinstall": "npx puppeteer install"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.5",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "pino": "^8.20.0",
-    "puppeteer": "^22.6.0",
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.5",
-    "whatsapp-web.js": "^1.26.0",
     "xlsx": "^0.18.5"
   }
 }
