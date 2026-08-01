@@ -234,15 +234,24 @@ class WhatsAppEngine {
             throw new Error('Please enter a valid 10 to 12 digit phone number (e.g. 917340216019)');
         }
 
-        // Wait for Puppeteer page to be fully loaded if initializing
+        // Wait for WhatsApp Web Page & internal Store.PairingCode module to be fully ready
         let attempts = 0;
-        while ((!accData.client.pupPage || accData.status === 'INITIALIZING') && attempts < 15) {
+        while (attempts < 25) {
+            if (accData.client.pupPage) {
+                try {
+                    const isStoreReady = await accData.client.pupPage.evaluate(() => {
+                        return typeof window !== 'undefined' && window.Store && window.Store.PairingCode;
+                    }).catch(() => false);
+
+                    if (isStoreReady) break;
+                } catch (e) {}
+            }
             await new Promise(r => setTimeout(r, 1000));
             attempts++;
         }
 
         if (!accData.client.pupPage) {
-            throw new Error('WhatsApp Engine is starting up... Please wait 3 seconds and click Get Code again.');
+            throw new Error('WhatsApp Engine is starting up... Please wait 5 seconds and click Get Code again.');
         }
 
         console.log(`[WhatsApp Engine] Requesting 8-digit pairing code for ${accId} with phone: ${cleanPhone}...`);
@@ -255,7 +264,7 @@ class WhatsAppEngine {
             return code;
         } catch (err) {
             console.error(`[WhatsApp Engine] Error requesting pairing code for ${accId}:`, err.message);
-            throw new Error(`Failed to request pairing code: ${err.message}`);
+            throw new Error(`Failed to request pairing code: ${err.message}. Please wait 3 seconds and click Get Code again.`);
         }
     }
 
