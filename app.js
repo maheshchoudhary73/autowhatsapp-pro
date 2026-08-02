@@ -351,6 +351,28 @@ function renderAccountsUI(accounts) {
     });
 }
 
+window.selectLoginBoxMode = function(accId, mode) {
+    activeLoginModes[accId] = mode;
+    const boxQr = document.getElementById(`box-qr-${accId}`);
+    const boxPhone = document.getElementById(`box-phone-${accId}`);
+    const qrContainer = document.getElementById(`qr-container-${accId}`);
+    const phoneContainer = document.getElementById(`phone-container-${accId}`);
+
+    if (boxQr) boxQr.classList.remove('active');
+    if (boxPhone) boxPhone.classList.remove('active');
+    if (qrContainer) qrContainer.classList.add('hidden');
+    if (phoneContainer) phoneContainer.classList.add('hidden');
+
+    if (mode === 'QR') {
+        if (boxQr) boxQr.classList.add('active');
+        if (qrContainer) qrContainer.classList.remove('hidden');
+        socket.emit('request_qr', { accId });
+    } else if (mode === 'PHONE') {
+        if (boxPhone) boxPhone.classList.add('active');
+        if (phoneContainer) phoneContainer.classList.remove('hidden');
+    }
+};
+
 window.submitPairingCodeRequest = function(accId) {
     const input = document.getElementById(`phone-input-${accId}`);
     if (!input || !input.value.trim()) {
