@@ -33,6 +33,18 @@ class WhatsAppEngine {
         this.onAutoReplyLog = null;
     }
 
+    setOnAccountsUpdate(fn) {
+        this.onAccountsUpdate = fn;
+    }
+
+    setOnAutoReplyLog(fn) {
+        this.onAutoReplyLog = fn;
+    }
+
+    async initAllAccounts() {
+        return await this.init();
+    }
+
     async init(callbacks = {}) {
         this.onAccountsUpdate = callbacks.onAccountsUpdate || this.onAccountsUpdate;
         this.onAutoReplyLog = callbacks.onAutoReplyLog || this.onAutoReplyLog;
