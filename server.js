@@ -367,16 +367,21 @@ io.on('connection', (socket) => {
 
 
 
-    // Broadcast Accounts Update to specific User Socket
-    waEngine.setOnAccountsUpdate((accounts) => {
-        socket.emit('accounts_update', accounts);
-    });
+// SINGLETON GLOBAL WAENGINE BROADCASTERS (Prevents listener stacking loop on socket reconnect)
+waEngine.setOnAccountsUpdate((accounts) => {
+    io.emit('accounts_update', accounts);
+});
 
-    waEngine.setOnAutoReplyLog((logData) => {
-        socket.emit('auto_reply_log', logData);
-    });
+waEngine.setOnAutoReplyLog((logData) => {
+    io.emit('auto_reply_log', logData);
+});
+
+io.on('connection', (socket) => {
+    const uid = socket.handshake.auth?.uid || 'guest_' + socket.id;
+    const email = socket.handshake.auth?.email || '';
 
     socket.emit('accounts_update', waEngine.getAccountsState());
+
 
     // Event: Request Fresh QR Code for Specific Account Slot
     socket.on('request_qr', async ({ accId }) => {
