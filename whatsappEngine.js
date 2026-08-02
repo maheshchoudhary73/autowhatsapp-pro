@@ -292,6 +292,10 @@ class WhatsAppEngine {
         return await this.createAccountInstance(newAccId);
     }
 
+    async addNewAccount() {
+        return await this.addAccountSlot();
+    }
+
     setAutoReplyRules(rules) {
         this.autoReplyRules = rules || [];
     }

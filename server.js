@@ -18,7 +18,8 @@ const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
-    }
+    },
+    maxHttpBufferSize: 1e8
 });
 
 const PORT = process.env.PORT || 3000;

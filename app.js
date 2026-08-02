@@ -239,7 +239,27 @@ function initUserSocket(user) {
         }
     });
 
+    socket.on('campaign_finished', (summary) => {
+        isCampaignRunning = false;
+        if (btnStartCampaign) {
+            btnStartCampaign.disabled = false;
+            btnStartCampaign.className = 'btn btn-success btn-lg full-btn';
+            btnStartCampaign.innerHTML = '<i class="fa-solid fa-play"></i> Start Campaign';
+        }
+        appendTerminalLog({
+            type: 'success',
+            timestamp: new Date().toLocaleTimeString(),
+            text: `🎉 Campaign Dispatch Completed! (Sent: ${summary?.sent || 0}, Failed: ${summary?.failed || 0})`
+        });
+    });
+
     socket.on('error_alert', (data) => {
+        isCampaignRunning = false;
+        if (btnStartCampaign) {
+            btnStartCampaign.disabled = false;
+            btnStartCampaign.className = 'btn btn-success btn-lg full-btn';
+            btnStartCampaign.innerHTML = '<i class="fa-solid fa-play"></i> Start Campaign';
+        }
         alert(data.message);
         appendTerminalLog({
             type: 'error',
@@ -618,12 +638,22 @@ function updateContactTableStatus(cleanPhone, statusStr) {
     }
 }
 
-// CAMPAIGN CONTROLLER
+// CAMPAIGN CONTROLLER (START / STOP FUNCTIONALITY)
 if (btnStartCampaign) {
     btnStartCampaign.addEventListener('click', () => {
         if (!socket) return;
+
+        // IF CAMPAIGN IS RUNNING: CLICKING BUTTON STOPS THE CAMPAIGN
         if (isCampaignRunning) {
-            alert('Campaign is already running!');
+            isCampaignRunning = false;
+            socket.emit('stop_campaign');
+            btnStartCampaign.className = 'btn btn-success btn-lg full-btn';
+            btnStartCampaign.innerHTML = '<i class="fa-solid fa-play"></i> Start Campaign';
+            appendTerminalLog({
+                type: 'warning',
+                timestamp: new Date().toLocaleTimeString(),
+                text: '⏹️ Campaign stopped by user.'
+            });
             return;
         }
 
@@ -665,8 +695,9 @@ if (btnStartCampaign) {
         };
 
         isCampaignRunning = true;
-        btnStartCampaign.disabled = true;
-        btnStartCampaign.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Campaign Running...';
+        btnStartCampaign.disabled = false;
+        btnStartCampaign.className = 'btn btn-danger-soft btn-lg full-btn';
+        btnStartCampaign.innerHTML = '<i class="fa-solid fa-square"></i> Stop Campaign';
 
         socket.emit('start_campaign', campaignPayload);
 
