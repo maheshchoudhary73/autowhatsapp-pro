@@ -85,8 +85,8 @@ class WhatsAppEngine {
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--disable-gpu',
-            '--unhandled-rejections=strict'
+            '--single-process',
+            '--disable-gpu'
         ];
 
         const puppeteerConfig = {
@@ -115,6 +115,11 @@ class WhatsAppEngine {
                 clientId: accId,
                 dataPath: authPath
             }),
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+            webVersionCache: {
+                type: 'remote',
+                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014500914-alpha.html'
+            },
             puppeteer: puppeteerConfig
         });
 
