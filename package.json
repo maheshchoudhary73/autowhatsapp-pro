@@ -1,7 +1,7 @@
 {
   "name": "autowhatsapp-pro",
   "version": "1.0.0",
-  "description": "AutoWhatsApp Pro Multi-Account Cloud Engine with Native WebSockets",
+  "description": "AutoWhatsApp Pro Native Cloud Engine with Baileys WebSockets",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,13 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "^6.7.5",
+    "@whiskeysockets/baileys": "^6.7.8",
     "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "pino": "^8.20.0",
-    "qrcode": "^1.5.3",
-    "socket.io": "^4.7.5",
+    "express": "^4.21.2",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
     "xlsx": "^0.18.5"
   }
 }

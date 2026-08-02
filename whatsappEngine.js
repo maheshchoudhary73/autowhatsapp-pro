@@ -1,74 +1,71 @@
 /**
- * whatsappEngine.js - Official Production WhatsApp Engine for AWS Linux & Windows
+ * whatsappEngine.js - Ultra-Fast Native WebSocket Engine using Baileys
+ * Zero Chrome Dependency, Instant 1-Second QR Code & 8-Digit Pairing Code
  */
 
-const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
+    fetchLatestBaileysVersion,
+    makeCacheableSignalKeyStore,
+    delay
+} = require('@whiskeysockets/baileys');
+
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-function forceCleanDirectory(dir) {
-    if (!fs.existsSync(dir)) return;
-    try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            if (entry.isDirectory()) {
-                forceCleanDirectory(fullPath);
-            } else if (entry.name === 'lockfile' || entry.name.endsWith('.lock') || entry.name.endsWith('.db-journal')) {
-                try {
-                    fs.unlinkSync(fullPath);
-                } catch (e) {}
-            }
-        }
-    } catch (err) {}
-}
+// Dummy logger to silence pino verbose logs
+const pino = require('pino');
+const logger = pino({ level: 'silent' });
 
 class WhatsAppEngine {
     constructor() {
         this.maxAccounts = 10;
-        this.accounts = new Map(); // accId -> { id, client, status, qrCodeDataUrl, pairingCode, userInfo }
+        this.accounts = new Map(); // accId -> { id, sock, status, qrCodeDataUrl, pairingCode, userInfo }
         this.autoReplyRules = [];
         this.onAccountsUpdate = null;
         this.onAutoReplyLog = null;
     }
 
-    init(callbacks = {}) {
+    async init(callbacks = {}) {
         this.onAccountsUpdate = callbacks.onAccountsUpdate || this.onAccountsUpdate;
         this.onAutoReplyLog = callbacks.onAutoReplyLog || this.onAutoReplyLog;
 
-        const authBaseDir = path.join(__dirname, '.wwebjs_auth');
-        forceCleanDirectory(authBaseDir);
-
-        if (fs.existsSync(authBaseDir)) {
-            const dirs = fs.readdirSync(authBaseDir);
-            const sessionDirs = dirs.filter(d => d.startsWith('session-acc_'));
-
-            if (sessionDirs.length > 0) {
-                sessionDirs.forEach(dirName => {
-                    const accId = dirName.replace('session-', '');
-                    this.createAccountInstance(accId);
-                });
-                return;
-            }
+        const authBaseDir = path.join(__dirname, '.baileys_auth');
+        if (!fs.existsSync(authBaseDir)) {
+            fs.mkdirSync(authBaseDir, { recursive: true });
         }
 
-        // Default Account Slot 1
-        this.createAccountInstance('acc_1');
+        const dirs = fs.readdirSync(authBaseDir);
+        const sessionDirs = dirs.filter(d => d.startsWith('session-acc_'));
+
+        if (sessionDirs.length > 0) {
+            for (const dirName of sessionDirs) {
+                const accId = dirName.replace('session-', '');
+                await this.createAccountInstance(accId);
+            }
+        } else {
+            // Default Account Slot 1
+            await this.createAccountInstance('acc_1');
+        }
     }
 
-    createAccountInstance(accId) {
+    async createAccountInstance(accId) {
         if (this.accounts.has(accId)) return this.accounts.get(accId);
         if (this.accounts.size >= this.maxAccounts) {
             throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
         }
 
-        const authPath = path.join(__dirname, '.wwebjs_auth');
-        forceCleanDirectory(authPath);
+        const sessionPath = path.join(__dirname, '.baileys_auth', `session-${accId}`);
+        if (!fs.existsSync(sessionPath)) {
+            fs.mkdirSync(sessionPath, { recursive: true });
+        }
 
         const accData = {
             id: accId,
-            client: null,
+            sock: null,
             status: 'INITIALIZING',
             qrCodeDataUrl: null,
             pairingCode: null,
@@ -78,176 +75,158 @@ class WhatsAppEngine {
         this.accounts.set(accId, accData);
         this.broadcastState();
 
-        const puppeteerArgs = [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
-        ];
+        try {
+            const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+            const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: [2, 3000, 1015901307] }));
 
-        const puppeteerConfig = {
-            headless: true,
-            protocolTimeout: 120000,
-            args: puppeteerArgs
-        };
+            const sock = makeWASocket({
+                version,
+                logger,
+                printQRInTerminal: false,
+                auth: {
+                    creds: state.creds,
+                    keys: makeCacheableSignalKeyStore(state.keys, logger),
+                },
+                browser: ['AutoWhatsApp Pro', 'Chrome', '1.0.0'],
+                generateHighQualityLinkPreview: true,
+                markOnlineOnConnect: true,
+                syncFullHistory: false
+            });
 
-        // Check Linux Chromium path
-        const linuxPaths = [
-            '/usr/bin/chromium-browser',
-            '/usr/bin/chromium',
-            '/usr/bin/google-chrome-stable',
-            '/usr/bin/google-chrome'
-        ];
+            accData.sock = sock;
 
-        for (const p of linuxPaths) {
-            if (fs.existsSync(p)) {
-                puppeteerConfig.executablePath = p;
-                console.log(`[WhatsApp Engine] Found Linux Chromium binary at: ${p}`);
-                break;
-            }
-        }
+            sock.ev.on('creds.update', saveCreds);
 
-        // Clean WhatsApp Web Instance using official Meta Web bundle directly
-        const client = new Client({
-            authStrategy: new LocalAuth({
-                clientId: accId,
-                dataPath: authPath
-            }),
-            puppeteer: puppeteerConfig
-        });
+            sock.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, qr } = update;
 
-        accData.client = client;
-
-        // QR Code Event (Fast Generation)
-        client.on('qr', async (qr) => {
-            try {
-                accData.qrCodeDataUrl = await QRCode.toDataURL(qr);
-                accData.status = 'QR_READY';
-                console.log(`[WhatsApp Engine] 📸 QR Code ready for ${accId}`);
-                this.broadcastState();
-            } catch (err) {
-                console.error(`[WhatsApp Engine] Error generating QR for ${accId}:`, err);
-            }
-        });
-
-        // Authenticating Event
-        client.on('authenticated', () => {
-            accData.qrCodeDataUrl = null;
-            accData.pairingCode = null;
-            accData.status = 'AUTHENTICATING';
-            console.log(`[WhatsApp Engine] Session authenticated for ${accId}`);
-            this.broadcastState();
-        });
-
-        // Ready Event (Connected with Duplicate Number Protection)
-        client.on('ready', async () => {
-            try {
-                const info = client.info;
-                const currentWid = info.wid ? info.wid.user : '';
-                const currentPush = info.pushname || 'WhatsApp Account';
-
-                if (currentWid) {
-                    for (const [existingId, existingAcc] of this.accounts) {
-                        if (existingId !== accId && existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid === currentWid) {
-                            console.log(`[WhatsApp Engine] ⚠️ Account +${currentWid} is Already Registered on ${existingId}! Disconnecting duplicate slot ${accId}...`);
-                            this.logoutAccount(accId);
-                            if (this.onAccountsUpdate) {
-                                this.broadcastState();
-                            }
-                            return;
-                        }
-                    }
-                }
-
-                accData.userInfo = {
-                    pushname: currentPush,
-                    wid: currentWid
-                };
-            } catch (e) {
-                accData.userInfo = { pushname: 'Connected Account', wid: '' };
-            }
-            accData.qrCodeDataUrl = null;
-            accData.pairingCode = null;
-            accData.status = 'CONNECTED';
-            console.log(`[WhatsApp Engine] ✅ ${accId} READY! Connected as ${accData.userInfo.pushname} (+${accData.userInfo.wid})`);
-            this.broadcastState();
-        });
-
-        // Incoming Message Listener for Live Auto-Responders
-        client.on('message', async (msg) => {
-            if (!msg.body || msg.from.endsWith('@g.us')) return;
-
-            const incomingText = msg.body.trim().toLowerCase();
-
-            for (const rule of this.autoReplyRules) {
-                if (!rule.keyword) continue;
-
-                const targetKw = rule.keyword.trim().toLowerCase();
-                const isMatch = rule.exactMatch 
-                    ? incomingText === targetKw 
-                    : incomingText.includes(targetKw);
-
-                if (isMatch) {
+                if (qr) {
                     try {
-                        if (rule.mediaObj && rule.mediaObj.data) {
-                            const media = new MessageMedia(rule.mediaObj.mimetype, rule.mediaObj.data, rule.mediaObj.filename);
-                            await client.sendMessage(msg.from, media, { caption: rule.replyText || '' });
-                        } else {
-                            await client.sendMessage(msg.from, rule.replyText || '');
-                        }
-
-                        if (this.onAutoReplyLog) {
-                            this.onAutoReplyLog({
-                                accId,
-                                from: msg.from.replace('@c.us', ''),
-                                keyword: rule.keyword,
-                                replyText: rule.replyText
-                            });
-                        }
+                        accData.qrCodeDataUrl = await QRCode.toDataURL(qr);
+                        accData.status = 'QR_READY';
+                        console.log(`[Baileys Engine] 📸 Instant QR Code Ready for ${accId}`);
+                        this.broadcastState();
                     } catch (err) {
-                        console.error(`[Auto-Responder] Error sending reply to ${msg.from}:`, err.message);
+                        console.error(`[Baileys Engine] Error generating QR for ${accId}:`, err);
                     }
-                    break;
                 }
-            }
-        });
 
-        // Event: Disconnected
-        client.on('disconnected', (reason) => {
-            console.log(`[WhatsApp Engine] ${accId} disconnected:`, reason);
-            accData.status = 'DISCONNECTED';
-            accData.userInfo = null;
-            accData.qrCodeDataUrl = null;
-            accData.pairingCode = null;
-            this.broadcastState();
-        });
+                if (connection === 'open') {
+                    const userJid = sock.user ? sock.user.id : '';
+                    const cleanPhone = userJid ? userJid.split(':')[0].split('@')[0] : '';
+                    const pushName = sock.user ? (sock.user.name || sock.user.notify || 'Connected Account') : 'WhatsApp User';
 
-        // Event: Auth Failure
-        client.on('auth_failure', (msg) => {
-            console.error(`[WhatsApp Engine] Auth failure on ${accId}:`, msg);
-            accData.status = 'DISCONNECTED';
-            this.broadcastState();
-        });
+                    // Check if this phone number is ALREADY connected on another slot
+                    if (cleanPhone) {
+                        for (const [existingId, existingAcc] of this.accounts) {
+                            if (existingId !== accId && existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid === cleanPhone) {
+                                console.log(`[Baileys Engine] ⚠️ Account +${cleanPhone} is Already Registered on ${existingId}! Disconnecting duplicate slot ${accId}...`);
+                                await this.logoutAccount(accId);
+                                return;
+                            }
+                        }
+                    }
 
-        client.initialize().catch(err => {
-            console.error(`[WhatsApp Engine] Initialize error on ${accId}:`, err.message);
+                    accData.userInfo = {
+                        pushname: pushName,
+                        wid: cleanPhone
+                    };
+                    accData.qrCodeDataUrl = null;
+                    accData.pairingCode = null;
+                    accData.status = 'CONNECTED';
+                    console.log(`[Baileys Engine] ✅ ${accId} READY! Connected as ${pushName} (+${cleanPhone})`);
+                    this.broadcastState();
+                }
+
+                if (connection === 'close') {
+                    const statusCode = lastDisconnect?.error?.output?.statusCode;
+                    const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+                    console.log(`[Baileys Engine] ${accId} Connection closed (StatusCode: ${statusCode}). Reconnecting: ${shouldReconnect}`);
+
+                    if (shouldReconnect) {
+                        accData.status = 'INITIALIZING';
+                        this.broadcastState();
+                        await delay(3000);
+                        this.accounts.delete(accId);
+                        await this.createAccountInstance(accId);
+                    } else {
+                        console.log(`[Baileys Engine] ${accId} Logged out cleanly.`);
+                        accData.status = 'DISCONNECTED';
+                        accData.userInfo = null;
+                        accData.qrCodeDataUrl = null;
+                        accData.pairingCode = null;
+                        this.broadcastState();
+                    }
+                }
+            });
+
+            // Incoming Messages Listener for Auto-Responders
+            sock.ev.on('messages.upsert', async (m) => {
+                if (m.type !== 'notify') return;
+
+                for (const msg of m.messages) {
+                    if (msg.key.fromMe || !msg.message) continue;
+
+                    const from = msg.key.remoteJid;
+                    if (!from || from.endsWith('@g.us')) continue;
+
+                    const textMessage = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+                    if (!textMessage) continue;
+
+                    const incomingText = textMessage.trim().toLowerCase();
+
+                    for (const rule of this.autoReplyRules) {
+                        if (!rule.keyword) continue;
+
+                        const targetKw = rule.keyword.trim().toLowerCase();
+                        const isMatch = rule.exactMatch 
+                            ? incomingText === targetKw 
+                            : incomingText.includes(targetKw);
+
+                        if (isMatch) {
+                            try {
+                                if (rule.mediaObj && rule.mediaObj.data) {
+                                    const buffer = Buffer.from(rule.mediaObj.data, 'base64');
+                                    await sock.sendMessage(from, {
+                                        image: buffer,
+                                        caption: rule.replyText || ''
+                                    });
+                                } else {
+                                    await sock.sendMessage(from, { text: rule.replyText || '' });
+                                }
+
+                                if (this.onAutoReplyLog) {
+                                    this.onAutoReplyLog({
+                                        accId,
+                                        from: from.replace('@s.whatsapp.net', ''),
+                                        keyword: rule.keyword,
+                                        replyText: rule.replyText
+                                    });
+                                }
+                            } catch (err) {
+                                console.error(`[Baileys Auto-Responder] Error replying to ${from}:`, err.message);
+                            }
+                            break;
+                        }
+                    }
+                }
+            });
+
+        } catch (err) {
+            console.error(`[Baileys Engine] Error creating instance ${accId}:`, err);
             accData.status = 'DISCONNECTED';
             this.broadcastState();
-        });
+        }
 
         return accData;
     }
 
     /**
-     * Reliable 8-Digit Phone Pairing Code Generation
+     * Instant Native 8-Digit Phone Pairing Code Generation
      */
     async requestPairingCode(accId, phoneNumber) {
         const accData = this.accounts.get(accId);
-        if (!accData || !accData.client) {
+        if (!accData || !accData.sock) {
             throw new Error(`Account slot ${accId} is not initialized!`);
         }
 
@@ -256,6 +235,7 @@ class WhatsAppEngine {
             throw new Error('Please enter a valid 10 to 12 digit phone number (e.g. 917340216019)');
         }
 
+        // Check if phone number is ALREADY connected on another slot
         const raw10 = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
         for (const [existingId, existingAcc] of this.accounts) {
             if (existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid) {
@@ -266,35 +246,24 @@ class WhatsAppEngine {
             }
         }
 
-        console.log(`[WhatsApp Engine] Requesting 8-digit pairing code for ${accId} with phone: ${cleanPhone}...`);
+        console.log(`[Baileys Engine] Requesting native 8-digit pairing code for ${accId} with phone: ${cleanPhone}...`);
 
         try {
-            // Wait for WhatsApp Web instance to be fully initialized
-            let waitAttempts = 0;
-            while (waitAttempts < 15) {
-                if (accData.client.pupPage) {
-                    const pageLoaded = await accData.client.pupPage.evaluate(() => {
-                        return typeof window !== 'undefined' && document.querySelector('canvas, [data-icon="scan"]') !== null;
-                    }).catch(() => false);
-                    if (pageLoaded) break;
-                }
-                await new Promise(r => setTimeout(r, 1000));
-                waitAttempts++;
-            }
-
-            const code = await accData.client.requestPairingCode(cleanPhone);
-            accData.pairingCode = code;
+            // Native WebSocket Pairing Code Request (0.5 Seconds!)
+            const code = await accData.sock.requestPairingCode(cleanPhone);
+            const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
+            accData.pairingCode = formattedCode;
             accData.status = 'PAIRING_CODE_READY';
-            console.log(`[WhatsApp Engine] 🔑 Pairing Code for ${accId}: ${code}`);
+            console.log(`[Baileys Engine] 🔑 Native Pairing Code for ${accId}: ${formattedCode}`);
             this.broadcastState();
-            return code;
+            return formattedCode;
         } catch (err) {
-            console.error(`[WhatsApp Engine] Error requesting pairing code for ${accId}:`, err.message);
-            throw new Error(`Failed to request pairing code: ${err.message || 'WhatsApp Web initialization pending'}`);
+            console.error(`[Baileys Engine] Error requesting pairing code for ${accId}:`, err.message);
+            throw new Error(`Failed to request pairing code: ${err.message}`);
         }
     }
 
-    addAccountSlot() {
+    async addAccountSlot() {
         if (this.accounts.size >= this.maxAccounts) {
             throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
         }
@@ -311,7 +280,7 @@ class WhatsAppEngine {
         }
 
         const newAccId = `acc_${slotNum}`;
-        return this.createAccountInstance(newAccId);
+        return await this.createAccountInstance(newAccId);
     }
 
     setAutoReplyRules(rules) {
@@ -320,15 +289,28 @@ class WhatsAppEngine {
 
     async sendMessageFrom(accId, recipientJid, messageText, mediaObj = null) {
         const accData = this.accounts.get(accId);
-        if (!accData || accData.status !== 'CONNECTED' || !accData.client) {
+        if (!accData || accData.status !== 'CONNECTED' || !accData.sock) {
             throw new Error(`Account ${accId} is not connected!`);
         }
 
+        let cleanJid = recipientJid.includes('@') ? recipientJid : `${recipientJid.replace(/\D/g, '')}@s.whatsapp.net`;
+
         if (mediaObj && mediaObj.data && mediaObj.mimetype) {
-            const media = new MessageMedia(mediaObj.mimetype, mediaObj.data, mediaObj.filename || 'attachment');
-            return await accData.client.sendMessage(recipientJid, media, { caption: messageText || '' });
+            const buffer = Buffer.from(mediaObj.data, 'base64');
+            if (mediaObj.mimetype.startsWith('image/')) {
+                return await accData.sock.sendMessage(cleanJid, { image: buffer, caption: messageText || '' });
+            } else if (mediaObj.mimetype.startsWith('video/')) {
+                return await accData.sock.sendMessage(cleanJid, { video: buffer, caption: messageText || '' });
+            } else {
+                return await accData.sock.sendMessage(cleanJid, {
+                    document: buffer,
+                    mimetype: mediaObj.mimetype,
+                    fileName: mediaObj.filename || 'attachment.pdf',
+                    caption: messageText || ''
+                });
+            }
         } else {
-            return await accData.client.sendMessage(recipientJid, messageText);
+            return await accData.sock.sendMessage(cleanJid, { text: messageText });
         }
     }
 
@@ -336,15 +318,14 @@ class WhatsAppEngine {
         const accData = this.accounts.get(accId);
         if (!accData) return;
 
-        console.log(`[WhatsApp Engine] Logging out ${accId}...`);
-        if (accData.client) {
+        console.log(`[Baileys Engine] Logging out ${accId}...`);
+        if (accData.sock) {
             try {
-                await accData.client.logout().catch(() => {});
-                await accData.client.destroy().catch(() => {});
+                await accData.sock.logout().catch(() => {});
             } catch (e) {}
         }
 
-        const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${accId}`);
+        const sessionPath = path.join(__dirname, '.baileys_auth', `session-${accId}`);
         try {
             if (fs.existsSync(sessionPath)) {
                 fs.rmSync(sessionPath, { recursive: true, force: true });
@@ -352,27 +333,26 @@ class WhatsAppEngine {
         } catch (e) {}
 
         this.accounts.delete(accId);
-        
+
         if (this.accounts.size === 0) {
-            this.createAccountInstance('acc_1');
+            await this.createAccountInstance('acc_1');
         } else {
             this.broadcastState();
         }
     }
 
     async logoutAllAccounts() {
-        console.log('[WhatsApp Engine] Logging out ALL connected WhatsApp accounts...');
+        console.log('[Baileys Engine] Logging out ALL connected WhatsApp accounts...');
         const accIds = Array.from(this.accounts.keys());
-        
+
         for (const accId of accIds) {
             const accData = this.accounts.get(accId);
-            if (accData && accData.client) {
+            if (accData && accData.sock) {
                 try {
-                    await accData.client.logout().catch(() => {});
-                    await accData.client.destroy().catch(() => {});
+                    await accData.sock.logout().catch(() => {});
                 } catch (e) {}
             }
-            const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${accId}`);
+            const sessionPath = path.join(__dirname, '.baileys_auth', `session-${accId}`);
             try {
                 if (fs.existsSync(sessionPath)) {
                     fs.rmSync(sessionPath, { recursive: true, force: true });
@@ -381,7 +361,7 @@ class WhatsAppEngine {
         }
 
         this.accounts.clear();
-        this.createAccountInstance('acc_1');
+        await this.createAccountInstance('acc_1');
     }
 
     broadcastState() {
