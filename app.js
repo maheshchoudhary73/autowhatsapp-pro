@@ -1,6 +1,6 @@
 /**
  * AutoWhatsApp Pro - Official Mobile & Web Frontend Logic
- * Pure Instant QR Code Engine Version
+ * Direct 0-Click Pure QR Engine Version
  */
 
 const RENDER_CLOUD_URL = 'http://16.16.160.123:3000';
@@ -84,6 +84,7 @@ socket.on('connect', () => {
         timestamp: new Date().toLocaleTimeString(),
         text: '⚡ Connected to 24/7 AutoWhatsApp Pure QR Cloud Backend!'
     });
+    socket.emit('request_qr', { accId: 'acc_1' });
 });
 
 socket.on('accounts_update', (accounts) => {
@@ -110,7 +111,7 @@ socket.on('auto_reply_log', (data) => {
     });
 });
 
-// Render Accounts Multi-Slot Grid (Pure QR)
+// Render Accounts Multi-Slot Grid (Direct 0-Click QR)
 function renderAccounts(accounts) {
     if (!accountsGrid) return;
     let html = '';
@@ -157,22 +158,28 @@ function renderAccounts(accounts) {
                         <button class="btn btn-danger-soft btn-sm" onclick="logoutAccount('${acc.id}')" title="Logout account">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
-                    ` : ''}
+                    ` : `
+                        <button class="btn btn-primary btn-sm" onclick="requestFreshQrSlot('${acc.id}')" title="Refresh QR Code">
+                            <i class="fa-solid fa-arrows-rotate"></i> Refresh QR
+                        </button>
+                    `}
                 </div>
 
                 ${!isConnected ? `
-                    <!-- PURE INSTANT QR DISPLAY CONTAINER -->
-                    <div class="qr-container-box" id="qr-container-${acc.id}" style="margin-top:10px;">
+                    <!-- DIRECT INSTANT QR DISPLAY BOX -->
+                    <div class="qr-container-box" id="qr-container-${acc.id}" style="margin-top:12px; text-align:center;">
                         ${isQrReady ? `
-                            <div class="qr-box-center">
-                                <img src="${acc.qrCode}" alt="Scan QR Code">
-                                <div class="qr-instruction">
-                                    <i class="fa-solid fa-qrcode"></i> Open WhatsApp ➔ Linked Devices ➔ Scan this QR Code
-                                </div>
+                            <div class="qr-box-center" style="display:inline-block; background:#ffffff; padding:12px; border-radius:12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                                <img src="${acc.qrCode}" alt="Scan QR Code" style="width:220px; height:220px; display:block;">
+                            </div>
+                            <div class="qr-instruction" style="margin-top:10px; font-size:12px; color:var(--primary); font-weight:600;">
+                                <i class="fa-solid fa-qrcode"></i> Open WhatsApp ➔ Linked Devices ➔ Scan this QR Code
                             </div>
                         ` : `
-                            <div class="acc-loading-box" style="padding: 14px;">
-                                <i class="fa-solid fa-spinner fa-spin"></i> Generating Official WhatsApp QR Code... Please wait 2 seconds.
+                            <div class="acc-loading-box" style="padding: 16px; border:1px dashed var(--border-color); border-radius:12px;" onclick="requestFreshQrSlot('${acc.id}')">
+                                <i class="fa-solid fa-spinner fa-spin" style="font-size:20px; color:var(--primary);"></i>
+                                <div style="margin-top:8px; font-size:12px;">Generating Fresh WhatsApp QR Code...</div>
+                                <span style="font-size:10px; color:var(--text-muted); cursor:pointer;">(Tap here to trigger instant fresh QR)</span>
                             </div>
                         `}
                     </div>
@@ -195,6 +202,15 @@ function renderAccounts(accounts) {
         else item.classList.remove('active');
     });
 }
+
+window.requestFreshQrSlot = function(accId) {
+    appendTerminalLog({
+        type: 'info',
+        timestamp: new Date().toLocaleTimeString(),
+        text: `🔄 Requesting instant fresh QR Code for ${accId}...`
+    });
+    socket.emit('request_qr', { accId });
+};
 
 window.logoutAccount = function(accId) {
     if (confirm(`Logout WhatsApp account slot (${accId})?`)) {
