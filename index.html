@@ -27,6 +27,8 @@
     <script>
         window.currentSelectedPlan = 'Starter';
         window.currentSelectedPrice = '₹299';
+        window.currentUser = null;
+        window.currentUserQuota = null;
         window.currentSelectedDuration = '1M';
 
         window.PRICING_MATRIX = {
@@ -113,9 +115,7 @@
 
             window.closePricingModal();
 
-            // IF USER IS NOT LOGGED IN: OPEN AUTH MODAL FIRST TO SIGN IN / CREATE ACCOUNT!
             if (typeof currentUser === 'undefined' || !currentUser) {
-                alert('Please Sign In or Create a Free Account first to activate your subscription!');
                 window.openAuthModal('signup');
                 return;
             }
@@ -137,6 +137,129 @@
                 upiModal.style.setProperty('display', 'none', 'important');
             }
         };
+
+        window.activeTemplateTab = 1;
+        window.totalTemplatesCount = 1;
+
+        window.switchTemplateTab = function(tplNum) {
+            window.activeTemplateTab = tplNum;
+            var tabs = document.querySelectorAll('.template-tab');
+            for (var i = 0; i < tabs.length; i++) {
+                if (parseInt(tabs[i].getAttribute('data-tpl')) === tplNum) {
+                    tabs[i].classList.add('active');
+                } else {
+                    tabs[i].classList.remove('active');
+                }
+            }
+
+            for (var j = 1; j <= 10; j++) {
+                var box = document.getElementById('tpl-box-' + j);
+                if (box) {
+                    if (j === tplNum) box.classList.remove('hidden');
+                    else box.classList.add('hidden');
+                }
+            }
+        };
+
+        window.addNewTemplateTab = function() {
+            var isPaid = (typeof currentUserQuota !== 'undefined' && currentUserQuota && currentUserQuota.plan && currentUserQuota.plan !== 'FREE' && currentUserQuota.plan !== 'FREE_EXPIRED');
+            var maxAllowed = isPaid ? 10 : 2;
+
+            if (window.totalTemplatesCount >= maxAllowed) {
+                if (!isPaid) {
+                    if (window.openPricingModal) window.openPricingModal();
+                } else {
+                    alert('⚠️ Maximum limit of 10 Message Templates reached!');
+                }
+                return;
+            }
+
+            window.totalTemplatesCount++;
+            var nextId = window.totalTemplatesCount;
+
+            var tabsContainer = document.getElementById('template-tabs-container');
+            if (tabsContainer) {
+                var newTabBtn = document.createElement('button');
+                newTabBtn.type = 'button';
+                newTabBtn.className = 'btn btn-secondary btn-sm template-tab';
+                newTabBtn.setAttribute('data-tpl', nextId);
+                newTabBtn.onclick = function() { window.switchTemplateTab(nextId); };
+                newTabBtn.innerHTML = 'Message Template - ' + nextId + ' <span onclick="event.stopPropagation(); removeTemplateTab(' + nextId + ')" style="color:#ef4444; margin-left:6px; font-weight:800; cursor:pointer;">✖</span>';
+                tabsContainer.appendChild(newTabBtn);
+            }
+
+            var boxesContainer = document.getElementById('template-boxes-container');
+            if (boxesContainer) {
+                var newBoxDiv = document.createElement('div');
+                newBoxDiv.className = 'tpl-box hidden';
+                newBoxDiv.id = 'tpl-box-' + nextId;
+
+                var newTa = document.createElement('textarea');
+                newTa.id = 'campaign-msg-text-' + nextId;
+                newTa.className = 'form-textarea tpl-textarea';
+                newTa.rows = 3;
+                newTa.oninput = window.checkDuplicateTemplates;
+                newTa.placeholder = 'Message Template - ' + nextId + ': Enter unique variation text...';
+
+                newBoxDiv.appendChild(newTa);
+                boxesContainer.appendChild(newBoxDiv);
+            }
+
+            window.switchTemplateTab(nextId);
+        };
+
+        window.removeTemplateTab = function(tplNum) {
+            var tabBtn = document.querySelector('.template-tab[data-tpl="' + tplNum + '"]');
+            if (tabBtn) tabBtn.remove();
+            var boxDiv = document.getElementById('tpl-box-' + tplNum);
+            if (boxDiv) boxDiv.remove();
+
+            if (window.activeTemplateTab === tplNum) {
+                window.switchTemplateTab(1);
+            }
+            if (window.checkDuplicateTemplates) window.checkDuplicateTemplates();
+        };
+
+        window.checkDuplicateTemplates = function() {
+            var textMap = {};
+            var hasDuplicate = false;
+
+            for (var i = 1; i <= 10; i++) {
+                var el = document.getElementById('campaign-msg-text-' + i);
+                if (el) {
+                    var val = el.value.trim();
+                    el.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+                    if (val.length > 0) {
+                        if (textMap[val]) {
+                            hasDuplicate = true;
+                            el.style.border = '2px solid #ef4444';
+                            el.style.background = 'rgba(239, 68, 68, 0.15)';
+                            var prevEl = document.getElementById('campaign-msg-text-' + textMap[val]);
+                            if (prevEl) {
+                                prevEl.style.border = '2px solid #ef4444';
+                                prevEl.style.background = 'rgba(239, 68, 68, 0.15)';
+                            }
+                        } else {
+                            textMap[val] = i;
+                            el.style.background = 'rgba(0, 0, 0, 0.3)';
+                        }
+                    }
+                }
+            }
+
+            var warn = document.getElementById('duplicate-warning-alert');
+            var btnStart = document.getElementById('btn-start-campaign');
+            if (hasDuplicate) {
+                if (warn) warn.classList.remove('hidden');
+                if (btnStart) btnStart.disabled = true;
+            } else {
+                if (warn) warn.classList.add('hidden');
+                if (btnStart) btnStart.disabled = false;
+            }
+        };
+
+
+
 
 
         window.scrollToPricingSection = function() {
@@ -309,13 +432,13 @@
     </div>
 
     <!-- FIREBASE SAAS AUTHENTICATION MODAL OVERLAY -->
-    <div class="auth-overlay hidden" id="saas-auth-overlay">
+    <div class="auth-overlay hidden" id="saas-auth-overlay" style="display:none !important;" onclick="if(event.target === this) window.closeAuthModal();">
         <div class="auth-card">
             <div class="flex-between" style="margin-bottom: 14px;">
                 <div class="auth-brand" style="margin-bottom:0;">
                     <h3 style="font-size: 18px; font-weight: 800;"><i class="fa-brands fa-whatsapp" style="color:var(--primary);"></i> Account Access</h3>
                 </div>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="closeAuthModal()">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.closeAuthModal()">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
@@ -362,14 +485,15 @@
     </div>
 
     <!-- FULL 3-PLAN PRICING MODAL (TRIGGERED WHEN LOGGED IN OR CLICKING UPGRADE PLAN) -->
-    <div class="auth-overlay hidden" id="saas-pricing-modal">
+    <div class="auth-overlay hidden" id="saas-pricing-modal" style="display:none !important;" onclick="if(event.target === this) window.closePricingModal();">
         <div class="auth-card" style="max-width: 950px; text-align:center; padding: 24px; max-height: 90vh; overflow-y: auto;">
             <div class="flex-between" style="margin-bottom: 16px;">
                 <h3 style="font-size: 20px; font-weight: 800;"><i class="fa-solid fa-crown" style="color:var(--warning);"></i> Choose Your Pro Subscription Plan</h3>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="closePricingModal()">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.closePricingModal()">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
+
 
             <!-- DURATION TOGGLE SWITCHER -->
             <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:10px; margin-bottom:24px;">
@@ -508,9 +632,10 @@
 
             <!-- USER SAAS PROFILE & UPGRADE HEADER -->
             <div class="user-header-profile" id="user-header-profile">
-                <button type="button" class="btn btn-primary btn-sm" onclick="scrollToPricingSection()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                <button type="button" class="btn btn-primary btn-sm" onclick="window.openPricingModal()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 12px rgba(245,158,11,0.3);">
                     <i class="fa-solid fa-crown"></i> Upgrade Plan
                 </button>
+
 
                 <div class="user-info-box">
                     <img src="https://ui-avatars.com/api/?name=User" id="user-avatar-img" class="user-avatar" alt="Avatar">
