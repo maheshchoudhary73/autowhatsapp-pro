@@ -85,8 +85,8 @@ class WhatsAppEngine {
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--single-process',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--unhandled-rejections=strict'
         ];
 
         const puppeteerConfig = {
@@ -94,13 +94,20 @@ class WhatsAppEngine {
             args: puppeteerArgs
         };
 
-        // Check if Linux official google-chrome-stable exists on AWS
-        const linuxChromePath = '/usr/bin/google-chrome-stable';
-        const linuxChromeAlt = '/usr/bin/google-chrome';
-        if (fs.existsSync(linuxChromePath)) {
-            puppeteerConfig.executablePath = linuxChromePath;
-        } else if (fs.existsSync(linuxChromeAlt)) {
-            puppeteerConfig.executablePath = linuxChromeAlt;
+        // Check if Linux chromium-browser or google-chrome-stable exists on AWS
+        const linuxPaths = [
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome'
+        ];
+
+        for (const p of linuxPaths) {
+            if (fs.existsSync(p)) {
+                puppeteerConfig.executablePath = p;
+                console.log(`[WhatsApp Engine] Found Linux Chromium binary at: ${p}`);
+                break;
+            }
         }
 
         const client = new Client({
