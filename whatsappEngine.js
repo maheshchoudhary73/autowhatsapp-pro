@@ -1,22 +1,21 @@
 /**
- * whatsappEngine.js - Fast Multi-Account & Dual Login Engine (QR Code & 8-Digit Phone Pairing Code)
+ * whatsappEngine.js - Production Grade WhatsApp Engine for AWS Linux & Windows
  */
 
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
-const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
 
-function cleanStaleLockFiles(dir) {
+function forceCleanDirectory(dir) {
     if (!fs.existsSync(dir)) return;
     try {
         const entries = fs.readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
             const fullPath = path.join(dir, entry.name);
             if (entry.isDirectory()) {
-                cleanStaleLockFiles(fullPath);
-            } else if (entry.name === 'lockfile' || entry.name.endsWith('.lock')) {
+                forceCleanDirectory(fullPath);
+            } else if (entry.name === 'lockfile' || entry.name.endsWith('.lock') || entry.name.endsWith('.db-journal')) {
                 try {
                     fs.unlinkSync(fullPath);
                 } catch (e) {}
@@ -28,19 +27,19 @@ function cleanStaleLockFiles(dir) {
 class WhatsAppEngine {
     constructor() {
         this.maxAccounts = 10;
-        this.accounts = new Map(); // Map<accId, { id, client, status, qrCodeDataUrl, pairingCode, userInfo }>
+        this.accounts = new Map(); // accId -> { id, client, status, qrCodeDataUrl, pairingCode, userInfo }
         this.autoReplyRules = [];
         this.onAccountsUpdate = null;
         this.onAutoReplyLog = null;
-        this.onPairingCode = null;
     }
 
     init(callbacks = {}) {
         this.onAccountsUpdate = callbacks.onAccountsUpdate || this.onAccountsUpdate;
         this.onAutoReplyLog = callbacks.onAutoReplyLog || this.onAutoReplyLog;
-        this.onPairingCode = callbacks.onPairingCode || this.onPairingCode;
 
         const authBaseDir = path.join(__dirname, '.wwebjs_auth');
+        forceCleanDirectory(authBaseDir);
+
         if (fs.existsSync(authBaseDir)) {
             const dirs = fs.readdirSync(authBaseDir);
             const sessionDirs = dirs.filter(d => d.startsWith('session-acc_'));
@@ -65,7 +64,7 @@ class WhatsAppEngine {
         }
 
         const authPath = path.join(__dirname, '.wwebjs_auth');
-        cleanStaleLockFiles(authPath);
+        forceCleanDirectory(authPath);
 
         const accData = {
             id: accId,
@@ -79,27 +78,29 @@ class WhatsAppEngine {
         this.accounts.set(accId, accData);
         this.broadcastState();
 
-        let chromePath = null;
-        try {
-            chromePath = puppeteer.executablePath();
-        } catch (e) {}
+        const puppeteerArgs = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',
+            '--disable-gpu'
+        ];
 
         const puppeteerConfig = {
             headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-accelerated-2d-canvas',
-                '--no-first-run',
-                '--no-zygote',
-                '--disable-gpu',
-                '--disable-features=IsolateOrigins,site-per-process'
-            ]
+            args: puppeteerArgs
         };
 
-        if (chromePath && fs.existsSync(chromePath)) {
-            puppeteerConfig.executablePath = chromePath;
+        // Check if Linux official google-chrome-stable exists on AWS
+        const linuxChromePath = '/usr/bin/google-chrome-stable';
+        const linuxChromeAlt = '/usr/bin/google-chrome';
+        if (fs.existsSync(linuxChromePath)) {
+            puppeteerConfig.executablePath = linuxChromePath;
+        } else if (fs.existsSync(linuxChromeAlt)) {
+            puppeteerConfig.executablePath = linuxChromeAlt;
         }
 
         const client = new Client({
@@ -107,10 +108,6 @@ class WhatsAppEngine {
                 clientId: accId,
                 dataPath: authPath
             }),
-            webVersionCache: {
-                type: 'remote',
-                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-            },
             puppeteer: puppeteerConfig
         });
 
@@ -137,13 +134,30 @@ class WhatsAppEngine {
             this.broadcastState();
         });
 
-        // Ready Event (Connected)
+        // Ready Event (Connected with Duplicate Number Protection)
         client.on('ready', async () => {
             try {
                 const info = client.info;
+                const currentWid = info.wid ? info.wid.user : '';
+                const currentPush = info.pushname || 'WhatsApp Account';
+
+                // Check if this phone number is ALREADY connected on another slot
+                if (currentWid) {
+                    for (const [existingId, existingAcc] of this.accounts) {
+                        if (existingId !== accId && existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid === currentWid) {
+                            console.log(`[WhatsApp Engine] ⚠️ Account +${currentWid} is Already Registered on ${existingId}! Disconnecting duplicate slot ${accId}...`);
+                            this.logoutAccount(accId);
+                            if (this.onAccountsUpdate) {
+                                this.broadcastState();
+                            }
+                            return;
+                        }
+                    }
+                }
+
                 accData.userInfo = {
-                    pushname: info.pushname || 'WhatsApp Account',
-                    wid: info.wid ? info.wid.user : 'Unknown'
+                    pushname: currentPush,
+                    wid: currentWid
                 };
             } catch (e) {
                 accData.userInfo = { pushname: 'Connected Account', wid: '' };
@@ -221,7 +235,7 @@ class WhatsAppEngine {
     }
 
     /**
-     * Request 8-Digit Phone Pairing Code (Link with Phone Number)
+     * Request 8-Digit Phone Pairing Code (with Duplicate Phone Number Protection)
      */
     async requestPairingCode(accId, phoneNumber) {
         const accData = this.accounts.get(accId);
@@ -234,24 +248,28 @@ class WhatsAppEngine {
             throw new Error('Please enter a valid 10 to 12 digit phone number (e.g. 917340216019)');
         }
 
-        // Wait for WhatsApp Web Page & internal Store.PairingCode module to be fully ready
-        let attempts = 0;
-        while (attempts < 25) {
-            if (accData.client.pupPage) {
-                try {
-                    const isStoreReady = await accData.client.pupPage.evaluate(() => {
-                        return typeof window !== 'undefined' && window.Store && window.Store.PairingCode;
-                    }).catch(() => false);
+        // Check if phone number is ALREADY connected on another slot
+        const raw10 = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
+        for (const [existingId, existingAcc] of this.accounts) {
+            if (existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid) {
+                const existingWid = String(existingAcc.userInfo.wid).replace(/\D/g, '');
+                if (existingWid.endsWith(raw10)) {
+                    throw new Error(`Account Already Registered! (+${existingWid})`);
+                }
+            }
+        }
 
-                    if (isStoreReady) break;
-                } catch (e) {}
+        // Wait up to 20 seconds for WhatsApp Web page to be ready
+        let attempts = 0;
+        while (attempts < 20) {
+            if (accData.client.pupPage) {
+                const isReady = await accData.client.pupPage.evaluate(() => {
+                    return typeof window !== 'undefined' && window.Store && window.Store.PairingCode;
+                }).catch(() => false);
+                if (isReady) break;
             }
             await new Promise(r => setTimeout(r, 1000));
             attempts++;
-        }
-
-        if (!accData.client.pupPage) {
-            throw new Error('WhatsApp Engine is starting up... Please wait 5 seconds and click Get Code again.');
         }
 
         console.log(`[WhatsApp Engine] Requesting 8-digit pairing code for ${accId} with phone: ${cleanPhone}...`);
@@ -264,7 +282,7 @@ class WhatsAppEngine {
             return code;
         } catch (err) {
             console.error(`[WhatsApp Engine] Error requesting pairing code for ${accId}:`, err.message);
-            throw new Error(`Failed to request pairing code: ${err.message}. Please wait 3 seconds and click Get Code again.`);
+            throw new Error(`Failed to request pairing code: ${err.message}`);
         }
     }
 
@@ -273,6 +291,7 @@ class WhatsAppEngine {
             throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
         }
 
+        // RULE: Do not allow adding a new account slot until the current slot is 100% connected
         for (const [accId, accData] of this.accounts) {
             if (accData.status !== 'CONNECTED') {
                 throw new Error(`Please scan or pair the current WhatsApp QR / Code before adding a new account!`);
