@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AutoWhatsApp Pro - Official Mobile & Web Automation</title>
+    <title>AutoWhatsApp Pro - Official Mobile & Web SaaS Automation Platform</title>
     
     <!-- Google Fonts & Font Awesome -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,13 +14,65 @@
     <!-- Core Application CSS -->
     <link rel="stylesheet" href="style.css">
     
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="firebaseConfig.js"></script>
+    
     <!-- SheetJS (Excel Parser) & Socket.io CDN -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
 </head>
 <body>
 
-    <div class="app-container">
+    <!-- FIREBASE SAAS AUTHENTICATION MODAL OVERLAY -->
+    <div class="auth-overlay" id="saas-auth-overlay">
+        <div class="auth-card">
+            <div class="auth-brand">
+                <div class="logo-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                <h2>AutoWhatsApp <span class="logo-pro">Pro SaaS</span></h2>
+                <p>Sign in to access your personal WhatsApp Cloud Automation Platform</p>
+            </div>
+
+            <!-- GOOGLE ONE-CLICK SIGN IN -->
+            <button type="button" class="btn-google-auth" id="btn-google-login">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                <span>Continue with Google</span>
+            </button>
+
+            <div class="auth-divider">
+                <span>OR SIGN IN WITH EMAIL</span>
+            </div>
+
+            <!-- EMAIL & PASSWORD AUTH FORM -->
+            <form id="auth-email-form" onsubmit="return false;">
+                <div class="form-group" style="text-align:left;">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="auth-email" class="form-input" placeholder="name@example.com" required>
+                </div>
+                <div class="form-group" style="text-align:left; margin-top:10px;">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required>
+                </div>
+
+                <div class="auth-actions-row" style="margin-top:16px;">
+                    <button type="button" class="btn btn-primary full-btn" id="btn-email-login">
+                        <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                    </button>
+                    <button type="button" class="btn btn-secondary full-btn" id="btn-email-signup" style="margin-top:8px;">
+                        <i class="fa-solid fa-user-plus"></i> Create New Account
+                    </button>
+                </div>
+            </form>
+
+            <div class="auth-footer-text">
+                🔒 100% Encrypted & Private. Your WhatsApp accounts are strictly isolated.
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN SAAS CONTAINER (HIDDEN UNTIL AUTHENTICATED) -->
+    <div class="app-container hidden" id="main-app-container">
         <!-- TOP STICKY HEADER -->
         <header class="app-header">
             <div class="header-brand">
@@ -28,6 +80,20 @@
                 <div class="logo-text">
                     <h1 class="logo-title">AutoWhatsApp <span class="logo-pro">Pro</span></h1>
                 </div>
+            </div>
+
+            <!-- USER SAAS PROFILE HEADER -->
+            <div class="user-header-profile" id="user-header-profile">
+                <div class="user-info-box">
+                    <img src="https://ui-avatars.com/api/?name=User" id="user-avatar-img" class="user-avatar" alt="Avatar">
+                    <div class="user-text-details">
+                        <div class="user-display-name" id="user-display-name">Loading User...</div>
+                        <span class="user-plan-tag free" id="user-plan-badge">Free Trial: 50 msgs/day</span>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-danger-soft btn-sm" id="btn-user-logout" title="Sign Out">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
             </div>
         </header>
 
@@ -43,7 +109,7 @@
             <div class="stat-card">
                 <div class="stat-icon sent"><i class="fa-solid fa-paper-plane"></i></div>
                 <div class="stat-details">
-                    <span class="stat-label">Sent</span>
+                    <span class="stat-label">Sent Today</span>
                     <h2 class="stat-value" id="sent-count">0</h2>
                 </div>
             </div>
@@ -73,9 +139,7 @@
         <!-- MAIN DASHBOARD CONTENT (3-ROW DUAL GRID LAYOUT) -->
         <main class="dashboard-views" style="padding-bottom:30px;">
             
-            <!-- ==================================================== -->
             <!-- ROW 1 (TOP GRID): ACCOUNTS MANAGER & EXCEL UPLOAD -->
-            <!-- ==================================================== -->
             <div class="dashboard-2col-grid" style="margin-bottom: 20px;">
                 <!-- LEFT GRID: WHATSAPP ACCOUNTS MANAGER -->
                 <div class="glass-card" style="height: 100%;">
@@ -128,9 +192,7 @@
                 </div>
             </div>
 
-            <!-- ==================================================== -->
             <!-- ROW 2 (MIDDLE GRID): CAMPAIGN BUILDER & CONTROLS -->
-            <!-- ==================================================== -->
             <div class="dashboard-2col-grid" style="margin-bottom: 20px;">
                 <!-- LEFT GRID: CAMPAIGN MESSAGE & MEDIA BUILDER -->
                 <div class="glass-card config-card" id="sectionCampaign" style="height: 100%;">
@@ -214,7 +276,7 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                                 <span class="btn-clear" id="btn-clear-terminal">Clear</span>
                             </div>
                             <div class="terminal-body" id="terminal-logs" style="height: 180px;">
-                                <div class="log-entry info"><span class="log-time">[System]</span> AutoWhatsApp Pro ready.</div>
+                                <div class="log-entry info"><span class="log-time">[System]</span> AutoWhatsApp Pro SaaS ready.</div>
                             </div>
                         </div>
 
@@ -222,9 +284,7 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                 </div>
             </div>
 
-            <!-- ==================================================== -->
             <!-- ROW 3 (BOTTOM GRID): SPEED MATRIX TABLE & PROFILE -->
-            <!-- ==================================================== -->
             <div class="dashboard-2col-grid">
                 <!-- LEFT GRID: SPEED & DAILY SAFE CAPACITY MATRIX TABLE -->
                 <div class="glass-card" style="height: 100%;">
@@ -298,20 +358,19 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                     </div>
                 </div>
 
-                <!-- RIGHT GRID: USER PROFILE & SYSTEM STATUS (BLANK PLACEHOLDER CARD) -->
+                <!-- RIGHT GRID: USER PROFILE & SYSTEM STATUS -->
                 <div class="glass-card" style="height: 100%;">
                     <div class="card-header flex-between">
-                        <h3><i class="fa-solid fa-user-gear"></i> User Profile & System Status</h3>
-                        <span class="file-badge" style="background:rgba(16, 185, 129, 0.15); color:var(--success);">Active License</span>
+                        <h3><i class="fa-solid fa-user-gear"></i> User Profile & SaaS License</h3>
+                        <span class="file-badge" id="sidebar-plan-badge" style="background:rgba(0, 242, 254, 0.15); color:var(--accent);">Free Trial</span>
                     </div>
 
                     <div style="padding: 20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
-                        <div style="width:70px; height:70px; border-radius:50%; background:rgba(0,242,254,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent); font-size:32px; border:1px solid rgba(0,242,254,0.3);">
-                            <i class="fa-solid fa-user-shield"></i>
-                        </div>
-                        <div style="font-size:16px; font-weight:800; color:var(--text-main);">Pro Automation User</div>
-                        <div style="font-size:12px; color:var(--text-muted); max-width:280px;">
-                            Cloud Server Active on <strong>AWS EC2 (eu-north-1)</strong>. Account details and subscription settings will appear here.
+                        <img src="https://ui-avatars.com/api/?name=User" id="sidebar-user-avatar" style="width:70px; height:70px; border-radius:50%; border:2px solid var(--accent);" alt="Profile">
+                        <div style="font-size:16px; font-weight:800; color:var(--text-main);" id="sidebar-user-name">Pro SaaS User</div>
+                        <div style="font-size:12px; color:var(--text-muted);" id="sidebar-user-email">user@example.com</div>
+                        <div style="font-size:12px; color:var(--success); font-weight:700; margin-top:4px;" id="sidebar-quota-status">
+                            📊 Daily Usage: <span id="quota-used-msgs">0</span> / <span id="quota-max-msgs">50</span> msgs today
                         </div>
                     </div>
                 </div>

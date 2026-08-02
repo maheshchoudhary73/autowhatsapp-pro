@@ -1,6 +1,6 @@
 /**
- * AutoWhatsApp Pro - Server Backend Entry Point
- * Baileys pure QR Engine + Express + Socket.io
+ * AutoWhatsApp Pro - SaaS Multi-Tenant Backend Server Entry Point
+ * Multi-User Session Isolation, Firebase User Scoping & Daily 50 SMS Free Trial Engine
  */
 
 const express = require('express');
@@ -22,6 +22,90 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+const QUOTAS_FILE = path.join(__dirname, 'user_quotas.json');
+
+// Helper to load user quotas database
+function loadUserQuotas() {
+    try {
+        if (fs.existsSync(QUOTAS_FILE)) {
+            const content = fs.readFileSync(QUOTAS_FILE, 'utf8');
+            return JSON.parse(content);
+        }
+    } catch (e) {}
+    return { users: {} };
+}
+
+// Helper to save user quotas database
+function saveUserQuotas(data) {
+    try {
+        fs.writeFileSync(QUOTAS_FILE, JSON.stringify(data, null, 2));
+    } catch (e) {}
+}
+
+// Helper to get or initialize user quota record
+function getUserQuotaRecord(uid, email = '') {
+    const data = loadUserQuotas();
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (!data.users[uid]) {
+        data.users[uid] = {
+            uid,
+            email,
+            plan: 'FREE', // 'FREE' | 'PRO'
+            dailyMaxQuota: 50,
+            dailySentToday: 0,
+            lastResetDate: todayStr
+        };
+        saveUserQuotas(data);
+    } else {
+        // Reset daily counter at midnight
+        if (data.users[uid].lastResetDate !== todayStr) {
+            data.users[uid].dailySentToday = 0;
+            data.users[uid].lastResetDate = todayStr;
+            saveUserQuotas(data);
+        }
+    }
+
+    return data.users[uid];
+}
+
+// Increment user sent count
+function incrementUserSentCount(uid, count = 1) {
+    const data = loadUserQuotas();
+    if (data.users[uid]) {
+        data.users[uid].dailySentToday = (data.users[uid].dailySentToday || 0) + count;
+        saveUserQuotas(data);
+    }
+}
+
+// Admin API to Upgrade User to PRO Plan
+function setUserPlan(uid, planTier) {
+    const data = loadUserQuotas();
+    if (data.users[uid]) {
+        data.users[uid].plan = planTier; // 'PRO' or 'FREE'
+        saveUserQuotas(data);
+    }
+}
+
+// User-Isolated WhatsApp Engines Store: userId -> WhatsAppEngine instance
+const userEngines = new Map();
+const userQueueManagers = new Map();
+
+function getUserEngine(uid) {
+    if (!userEngines.has(uid)) {
+        const engine = new WhatsAppEngine(uid);
+        engine.init();
+        userEngines.set(uid, engine);
+    }
+    return userEngines.get(uid);
+}
+
+function getUserQueueManager(uid) {
+    if (!userQueueManagers.has(uid)) {
+        userQueueManagers.set(uid, new QueueManager());
+    }
+    return userQueueManagers.get(uid);
+}
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -31,25 +115,30 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
 
-// Initialize WhatsApp Baileys Engine & Queue Manager
-const waEngine = new WhatsAppEngine();
-const queueMgr = new QueueManager();
-
-// Broadcast Accounts Update to Socket.io Clients
-waEngine.setOnAccountsUpdate((accounts) => {
-    io.emit('accounts_update', accounts);
-});
-
-// Broadcast Auto-Reply Logs to Socket.io Clients
-waEngine.setOnAutoReplyLog((logData) => {
-    io.emit('auto_reply_log', logData);
-});
-
-// Socket.io Connection Logic
+// Socket.io Multi-Tenant Authenticated Connection Logic
 io.on('connection', (socket) => {
-    console.log(`[Socket.io] Client connected: ${socket.id}`);
+    const authData = socket.handshake.auth || {};
+    const uid = authData.uid || 'public_anonymous';
+    const email = authData.email || '';
 
-    // Send current accounts state on connect
+    console.log(`[SaaS Socket] User connected: ${uid} (${email}) | Socket: ${socket.id}`);
+
+    const waEngine = getUserEngine(uid);
+    const queueMgr = getUserQueueManager(uid);
+
+    // Send User Quota Info & Account State on Connect
+    const userQuota = getUserQuotaRecord(uid, email);
+    socket.emit('user_quota_info', userQuota);
+
+    // Broadcast Accounts Update to specific User Socket
+    waEngine.setOnAccountsUpdate((accounts) => {
+        socket.emit('accounts_update', accounts);
+    });
+
+    waEngine.setOnAutoReplyLog((logData) => {
+        socket.emit('auto_reply_log', logData);
+    });
+
     socket.emit('accounts_update', waEngine.getAccountsState());
 
     // Event: Request Fresh QR Code for Specific Account Slot
@@ -59,7 +148,7 @@ io.on('connection', (socket) => {
             const qrCode = await waEngine.requestFreshQR(targetAccId);
             socket.emit('qr_code_response', { success: true, accId: targetAccId, qrCode });
         } catch (err) {
-            console.error('[Server] request_qr error:', err.message);
+            console.error(`[Server ${uid}] request_qr error:`, err.message);
             socket.emit('error_alert', { message: err.message });
         }
     });
@@ -67,20 +156,10 @@ io.on('connection', (socket) => {
     // Event: Add New WhatsApp Account Slot
     socket.on('add_account', async () => {
         try {
-            const newAcc = await waEngine.addNewAccount();
+            await waEngine.addNewAccount();
             socket.emit('accounts_update', waEngine.getAccountsState());
         } catch (err) {
-            console.error('[Server] add_account error:', err.message);
-            socket.emit('error_alert', { message: err.message });
-        }
-    });
-
-    // Event: Request 8-Digit Phone Pairing Code
-    socket.on('request_pairing_code', async ({ accId, phoneNumber }) => {
-        try {
-            const code = await waEngine.requestPairingCode(accId, phoneNumber);
-            socket.emit('pairing_code_response', { success: true, accId, code });
-        } catch (err) {
+            console.error(`[Server ${uid}] add_account error:`, err.message);
             socket.emit('error_alert', { message: err.message });
         }
     });
@@ -103,7 +182,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Event: Start Campaign with Media & Auto-Reply Rules
+    // Event: Start Campaign with Free Trial 50 SMS Limit Check
     socket.on('start_campaign', (payload) => {
         const connectedAccounts = waEngine.getConnectedAccountIds();
 
@@ -116,6 +195,18 @@ io.on('connection', (socket) => {
         if (!contacts || contacts.length === 0) {
             socket.emit('error_alert', { message: 'No valid contacts found in campaign!' });
             return;
+        }
+
+        // DAILY FREE TRIAL QUOTA CHECK
+        const currentQuota = getUserQuotaRecord(uid, email);
+        if (currentQuota.plan === 'FREE') {
+            const remainingQuota = currentQuota.dailyMaxQuota - currentQuota.dailySentToday;
+            if (remainingQuota <= 0) {
+                socket.emit('error_alert', { 
+                    message: `⚠️ Free Trial Limit Reached (${currentQuota.dailySentToday}/50 msgs sent today). Daily limit resets at midnight or upgrade to PRO Plan!` 
+                });
+                return;
+            }
         }
 
         const template = payload.messageTemplate || payload.template || '';
@@ -136,17 +227,24 @@ io.on('connection', (socket) => {
         queueMgr.loadCampaign(contacts, template, settings, routingConfig, mediaObj, autoReplyRules);
         queueMgr.start(
             async (accId, phoneJid, messageText, mediaItem) => {
-                return await waEngine.sendMessageFrom(accId, phoneJid, messageText, mediaItem);
+                const res = await waEngine.sendMessageFrom(accId, phoneJid, messageText, mediaItem);
+                
+                // Track usage on successful send
+                incrementUserSentCount(uid, 1);
+                const updatedQuota = getUserQuotaRecord(uid, email);
+                socket.emit('user_quota_info', updatedQuota);
+
+                return res;
             },
             {
                 onProgress: (progressData) => {
-                    io.emit('campaign_progress', progressData);
+                    socket.emit('campaign_progress', progressData);
                 },
                 onLog: (logEntry) => {
-                    io.emit('campaign_log', logEntry);
+                    socket.emit('campaign_log', logEntry);
                 },
                 onFinish: (summary) => {
-                    io.emit('campaign_finished', summary);
+                    socket.emit('campaign_finished', summary);
                 }
             }
         );
@@ -157,17 +255,32 @@ io.on('connection', (socket) => {
     socket.on('stop_campaign', () => queueMgr.stop());
 
     socket.on('disconnect', () => {
-        console.log(`[Socket.io] Client disconnected: ${socket.id}`);
+        console.log(`[SaaS Socket] User disconnected: ${uid} | Socket: ${socket.id}`);
     });
 });
 
-// REST API Health Check Endpoint
+// REST API Health Check & Admin Upgrade Endpoint
 app.get('/api/health', (req, res) => {
     res.json({
-        status: 'online',
-        uptime: process.uptime(),
-        connectedAccounts: waEngine.getConnectedAccountIds()
+        status: 'online SaaS Platform Active',
+        activeUsersCount: userEngines.size,
+        uptime: process.uptime()
     });
+});
+
+// Admin Endpoint: Upgrade User to PRO Plan
+// Example: http://16.16.160.123:3000/api/admin/upgrade-user?uid=FIREBASE_UID&plan=PRO&secret=admin123
+app.get('/api/admin/upgrade-user', (req, res) => {
+    const { uid, plan, secret } = req.query;
+    if (secret !== 'admin123') {
+        return res.status(403).json({ error: 'Unauthorized secret key' });
+    }
+    if (!uid) {
+        return res.status(400).json({ error: 'Missing uid' });
+    }
+    const targetPlan = plan === 'PRO' ? 'PRO' : 'FREE';
+    setUserPlan(uid, targetPlan);
+    res.json({ success: true, uid, plan: targetPlan });
 });
 
 // Serve index.html for all other routes
@@ -175,13 +288,9 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Initialize Engine and Start HTTP Server
-waEngine.initAllAccounts().then(() => {
-    server.listen(PORT, () => {
-        console.log(`====================================================`);
-        console.log(`🚀 AutoWhatsApp Pro Cloud Server running on port ${PORT}`);
-        console.log(`====================================================`);
-    });
-}).catch(err => {
-    console.error('Failed to initialize Baileys engine:', err);
+// Start HTTP Server
+server.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(`🚀 AutoWhatsApp Pro SaaS Server running on port ${PORT}`);
+    console.log(`====================================================`);
 });

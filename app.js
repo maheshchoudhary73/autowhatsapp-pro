@@ -1,6 +1,6 @@
 /**
- * AutoWhatsApp Pro - Official Mobile & Web Frontend Logic
- * Direct 0-Click Pure QR Engine + Smart Excel Data Parser (Smooth 1-Click Picker & Auto +91 Handling)
+ * AutoWhatsApp Pro - SaaS Multi-Tenant Platform Frontend Logic
+ * Firebase Authentication + Strict Session Isolation + Daily 50 SMS Free Trial Limit
  */
 
 const RENDER_CLOUD_URL = 'http://16.16.160.123:3000';
@@ -10,18 +10,38 @@ if (typeof window !== 'undefined' && window.location && window.location.hostname
     socketHost = window.location.origin;
 }
 
-const socket = io(socketHost, {
-    transports: ['websocket', 'polling']
-});
+let currentUser = null;
+let socket = null;
 
 // UI State
 let accountsState = [];
 let parsedContacts = [];
-let campaignQueue = [];
 let isCampaignRunning = false;
 let currentMediaObj = null;
 
-// DOM Elements
+// DOM Elements - Auth Modal
+const saasAuthOverlay = document.getElementById('saas-auth-overlay');
+const mainAppContainer = document.getElementById('main-app-container');
+const btnGoogleLogin = document.getElementById('btn-google-login');
+const btnEmailLogin = document.getElementById('btn-email-login');
+const btnEmailSignup = document.getElementById('btn-email-signup');
+const authEmailInput = document.getElementById('auth-email');
+const authPasswordInput = document.getElementById('auth-password');
+
+// DOM Elements - User Header Profile
+const userAvatarImg = document.getElementById('user-avatar-img');
+const userDisplayName = document.getElementById('user-display-name');
+const userPlanBadge = document.getElementById('user-plan-badge');
+const btnUserLogout = document.getElementById('btn-user-logout');
+
+const sidebarUserAvatar = document.getElementById('sidebar-user-avatar');
+const sidebarUserName = document.getElementById('sidebar-user-name');
+const sidebarUserEmail = document.getElementById('sidebar-user-email');
+const sidebarPlanBadge = document.getElementById('sidebar-plan-badge');
+const quotaUsedMsgs = document.getElementById('quota-used-msgs');
+const quotaMaxMsgs = document.getElementById('quota-max-msgs');
+
+// DOM Elements - App Stats & Controls
 const totalContactsCount = document.getElementById('total-contacts-count');
 const sentCountEl = document.getElementById('sent-count');
 const pendingCountEl = document.getElementById('pending-count');
@@ -54,17 +74,171 @@ const terminalLogs = document.getElementById('terminal-logs');
 const btnClearTerminal = document.getElementById('btn-clear-terminal');
 
 const SPEED_CAPS = {
-    1: 30,
-    2: 60,
-    3: 100,
-    4: 150,
-    5: 250,
-    6: 350,
-    7: 400,
-    8: 450,
-    9: 500,
-    10: 600
+    1: 30, 2: 60, 3: 100, 4: 150, 5: 250,
+    6: 350, 7: 400, 8: 450, 9: 500, 10: 600
 };
+
+// FIREBASE AUTH STATE LISTENER
+if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().onAuthStateChanged((user) => {
+        if (user) {
+            currentUser = user;
+            console.log('Firebase User Authenticated:', user.email || user.uid);
+            
+            // Render Profile UI
+            const displayName = user.displayName || user.email?.split('@')[0] || 'Pro SaaS User';
+            const avatarUrl = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00f2fe&color=fff`;
+
+            userDisplayName.textContent = displayName;
+            userAvatarImg.src = avatarUrl;
+            
+            sidebarUserName.textContent = displayName;
+            sidebarUserEmail.textContent = user.email || user.uid;
+            sidebarUserAvatar.src = avatarUrl;
+
+            saasAuthOverlay.classList.add('hidden');
+            mainAppContainer.classList.remove('hidden');
+
+            // Connect Isolated Socket for User
+            initUserSocket(user);
+
+        } else {
+            currentUser = null;
+            saasAuthOverlay.classList.remove('hidden');
+            mainAppContainer.classList.add('hidden');
+            if (socket) {
+                socket.disconnect();
+            }
+        }
+    });
+}
+
+// GOOGLE SIGN IN
+if (btnGoogleLogin) {
+    btnGoogleLogin.addEventListener('click', () => {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        firebase.auth().signInWithPopup(provider).catch(err => {
+            console.error('Google Sign-In Error:', err);
+            alert('Google Sign-In failed: ' + err.message);
+        });
+    });
+}
+
+// EMAIL SIGN IN / SIGN UP
+if (btnEmailLogin) {
+    btnEmailLogin.addEventListener('click', () => {
+        const email = authEmailInput.value.trim();
+        const password = authPasswordInput.value.trim();
+        if (!email || !password) {
+            alert('Please enter your email address and password!');
+            return;
+        }
+        firebase.auth().signInWithEmailAndPassword(email, password).catch(err => {
+            alert('Sign-In failed: ' + err.message);
+        });
+    });
+}
+
+if (btnEmailSignup) {
+    btnEmailSignup.addEventListener('click', () => {
+        const email = authEmailInput.value.trim();
+        const password = authPasswordInput.value.trim();
+        if (!email || !password) {
+            alert('Please enter your email address and password!');
+            return;
+        }
+        if (password.length < 6) {
+            alert('Password should be at least 6 characters long!');
+            return;
+        }
+        firebase.auth().createUserWithEmailAndPassword(email, password).then(res => {
+            alert('Account created successfully! Welcome to AutoWhatsApp Pro SaaS.');
+        }).catch(err => {
+            alert('Registration failed: ' + err.message);
+        });
+    });
+}
+
+if (btnUserLogout) {
+    btnUserLogout.addEventListener('click', () => {
+        if (confirm('Sign out of AutoWhatsApp Pro SaaS?')) {
+            firebase.auth().signOut();
+        }
+    });
+}
+
+// USER ISOLATED SOCKET CONNECTION
+function initUserSocket(user) {
+    if (socket) socket.disconnect();
+
+    socket = io(socketHost, {
+        transports: ['websocket', 'polling'],
+        auth: {
+            uid: user.uid,
+            email: user.email || ''
+        }
+    });
+
+    socket.on('connect', () => {
+        console.log('Isolated SaaS Socket Connected:', socket.id);
+        appendTerminalLog({
+            type: 'success',
+            timestamp: new Date().toLocaleTimeString(),
+            text: `⚡ Authenticated SaaS Cloud Connection [UID: ${user.uid.slice(0, 6)}...]`
+        });
+        socket.emit('request_qr', { accId: 'acc_1' });
+    });
+
+    socket.on('accounts_update', (accounts) => {
+        accountsState = accounts;
+        renderAccounts(accounts);
+    });
+
+    socket.on('user_quota_info', (quota) => {
+        if (quota) {
+            const used = quota.dailySentToday || 0;
+            const max = quota.plan === 'PRO' ? '∞' : (quota.dailyMaxQuota || 50);
+            
+            quotaUsedMsgs.textContent = used;
+            quotaMaxMsgs.textContent = max;
+
+            if (quota.plan === 'PRO') {
+                userPlanBadge.textContent = 'PRO Plan';
+                userPlanBadge.className = 'user-plan-tag pro';
+                sidebarPlanBadge.textContent = 'PRO Plan';
+                sidebarPlanBadge.style.color = 'var(--primary)';
+            } else {
+                userPlanBadge.textContent = `Free Trial: ${Math.max(0, 50 - used)} msgs left today`;
+                userPlanBadge.className = 'user-plan-tag free';
+                sidebarPlanBadge.textContent = 'Free Trial';
+                sidebarPlanBadge.style.color = 'var(--accent)';
+            }
+        }
+    });
+
+    socket.on('campaign_progress', (data) => {
+        const { sent, pending, failed } = data;
+        sentCountEl.textContent = sent;
+        pendingCountEl.textContent = pending;
+        failedCountEl.textContent = failed;
+    });
+
+    socket.on('campaign_log', (log) => {
+        appendTerminalLog(log);
+        if (log && log.phone) {
+            updateContactTableStatus(log.phone, log.type === 'success' ? 'Sent' : 'Failed');
+        }
+    });
+
+    socket.on('error_alert', (data) => {
+        alert(data.message);
+        appendTerminalLog({
+            type: 'error',
+            timestamp: new Date().toLocaleTimeString(),
+            text: `⚠️ ${data.message}`
+        });
+    });
+}
 
 // Masking Helper
 function maskPhoneNumber(phone) {
@@ -75,44 +249,6 @@ function maskPhoneNumber(phone) {
     const suffix = clean.slice(-2);
     return `${prefix}XXXX${suffix}`;
 }
-
-// Socket Listeners
-socket.on('connect', () => {
-    console.log('Connected to AutoWhatsApp Pure QR Cloud Engine:', socket.id);
-    appendTerminalLog({
-        type: 'success',
-        timestamp: new Date().toLocaleTimeString(),
-        text: '⚡ Connected to 24/7 AutoWhatsApp Pure QR Cloud Backend!'
-    });
-    socket.emit('request_qr', { accId: 'acc_1' });
-});
-
-socket.on('accounts_update', (accounts) => {
-    accountsState = accounts;
-    renderAccounts(accounts);
-});
-
-socket.on('campaign_progress', (data) => {
-    const { sent, pending, failed } = data;
-    sentCountEl.textContent = sent;
-    pendingCountEl.textContent = pending;
-    failedCountEl.textContent = failed;
-});
-
-socket.on('campaign_log', (log) => {
-    appendTerminalLog(log);
-    if (log && log.phone) {
-        updateContactTableStatus(log.phone, log.type === 'success' ? 'Sent' : 'Failed');
-    }
-});
-
-socket.on('auto_reply_log', (data) => {
-    appendTerminalLog({
-        type: 'info',
-        timestamp: new Date().toLocaleTimeString(),
-        text: `🤖 Auto-Reply sent from (${data.accId}) to +${maskPhoneNumber(data.from)} [Keyword: "${data.keyword}"]`
-    });
-});
 
 // Render Accounts Multi-Slot Grid (Direct 0-Click QR)
 function renderAccounts(accounts) {
@@ -169,7 +305,6 @@ function renderAccounts(accounts) {
                 </div>
 
                 ${!isConnected ? `
-                    <!-- DIRECT INSTANT QR DISPLAY BOX -->
                     <div class="qr-container-box" id="qr-container-${acc.id}" style="margin-top:12px; text-align:center;">
                         ${isQrReady ? `
                             <div class="qr-box-center" style="display:inline-block; background:#ffffff; padding:12px; border-radius:12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
@@ -198,15 +333,10 @@ function renderAccounts(accounts) {
     const cap = SPEED_CAPS[connectedCount] || (connectedCount > 10 ? 600 : 30);
     speedLockBadge.textContent = `${connectedCount} Acc = ${cap} msgs/min`;
     statSpeedCap.textContent = `${cap} Msgs / Min`;
-
-    document.querySelectorAll('.matrix-item').forEach(item => {
-        const count = parseInt(item.getAttribute('data-acc'));
-        if (count === connectedCount) item.classList.add('active');
-        else item.classList.remove('active');
-    });
 }
 
 window.requestFreshQrSlot = function(accId) {
+    if (!socket) return;
     appendTerminalLog({
         type: 'info',
         timestamp: new Date().toLocaleTimeString(),
@@ -216,6 +346,7 @@ window.requestFreshQrSlot = function(accId) {
 };
 
 window.logoutAccount = function(accId) {
+    if (!socket) return;
     if (confirm(`Logout WhatsApp account slot (${accId})?`)) {
         socket.emit('logout_account', { accId });
     }
@@ -229,6 +360,7 @@ window.triggerExcelFilePicker = function() {
 
 if (btnAddAccount) {
     btnAddAccount.addEventListener('click', () => {
+        if (!socket) return;
         const hasUnconnected = accountsState.some(a => a.status !== 'CONNECTED');
         if (hasUnconnected) {
             alert('Please scan the current WhatsApp QR code before adding a new account!');
@@ -240,6 +372,7 @@ if (btnAddAccount) {
 
 if (btnLogoutAll) {
     btnLogoutAll.addEventListener('click', () => {
+        if (!socket) return;
         if (confirm('Are you sure you want to LOGOUT ALL connected WhatsApp accounts?')) {
             socket.emit('logout_all_accounts');
         }
@@ -341,7 +474,6 @@ function handleExcelUpload() {
                 h.includes('name') || h.includes('customer') || h.includes('user') || h.includes('client')
             );
 
-            // Smart fallback if phone header not found by keyword
             if (phoneIdx === -1) {
                 for (let c = 0; c < (rows[1] || []).length; c++) {
                     const sampleVal = String(rows[1][c] || '').replace(/\D/g, '');
@@ -364,7 +496,7 @@ function handleExcelUpload() {
 
                 let cleanDigits = rawPhone.replace(/\D/g, '');
                 if (cleanDigits.length === 10) {
-                    cleanDigits = `91${cleanDigits}`; // Auto-prefix India country code 91 for 10-digit mobile numbers
+                    cleanDigits = `91${cleanDigits}`;
                 }
 
                 if (cleanDigits.length >= 10) {
@@ -372,7 +504,7 @@ function handleExcelUpload() {
                         id: i,
                         name: rawName || `Contact ${i}`,
                         phone: cleanDigits,
-                        rawPhone: rawPhone, // Preserves exact string e.g. +91 99096 66331 or 8094191390
+                        rawPhone: rawPhone,
                         status: 'Pending'
                     });
                 }
@@ -389,7 +521,6 @@ function handleExcelUpload() {
                 </div>
             `;
 
-            // RENDER FULL DYNAMIC EXCEL PREVIEW TABLE WITH STATUS COLUMN
             renderExcelPreviewTable(file.name);
 
             appendTerminalLog({
@@ -467,6 +598,7 @@ function updateContactTableStatus(cleanPhone, statusStr) {
 
 // CAMPAIGN CONTROLLER
 btnStartCampaign.addEventListener('click', () => {
+    if (!socket) return;
     if (isCampaignRunning) {
         alert('Campaign is already running!');
         return;

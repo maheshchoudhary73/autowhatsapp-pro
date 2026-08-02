@@ -25,7 +25,8 @@ const pino = require('pino');
 const logger = pino({ level: 'silent' });
 
 class WhatsAppEngine {
-    constructor() {
+    constructor(userId = 'public_anonymous') {
+        this.userId = String(userId).replace(/[^a-zA-Z0-9_-]/g, '_');
         this.maxAccounts = 10;
         this.accounts = new Map(); // accId -> { id, sock, status, qrCodeDataUrl, userInfo }
         this.autoReplyRules = [];
@@ -54,16 +55,17 @@ class WhatsAppEngine {
             fs.mkdirSync(authBaseDir, { recursive: true });
         }
 
+        const prefix = `session-${this.userId}_acc_`;
         const dirs = fs.readdirSync(authBaseDir);
-        const sessionDirs = dirs.filter(d => d.startsWith('session-acc_'));
+        const sessionDirs = dirs.filter(d => d.startsWith(prefix));
 
         if (sessionDirs.length > 0) {
             for (const dirName of sessionDirs) {
-                const accId = dirName.replace('session-', '');
+                const accId = dirName.replace(`session-${this.userId}_`, '');
                 await this.createAccountInstance(accId);
             }
         } else {
-            // Default Account Slot 1
+            // Default Account Slot 1 for this User
             await this.createAccountInstance('acc_1');
         }
     }
@@ -80,7 +82,7 @@ class WhatsAppEngine {
             throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
         }
 
-        const sessionPath = path.join(__dirname, '.baileys_auth', `session-${accId}`);
+        const sessionPath = path.join(__dirname, '.baileys_auth', `session-${this.userId}_${accId}`);
         if (!fs.existsSync(sessionPath)) {
             fs.mkdirSync(sessionPath, { recursive: true });
         }
@@ -336,7 +338,7 @@ class WhatsAppEngine {
             } catch (e) {}
         }
 
-        const sessionPath = path.join(__dirname, '.baileys_auth', `session-${accId}`);
+        const sessionPath = path.join(__dirname, '.baileys_auth', `session-${this.userId}_${accId}`);
         try {
             if (fs.existsSync(sessionPath)) {
                 fs.rmSync(sessionPath, { recursive: true, force: true });
@@ -353,7 +355,7 @@ class WhatsAppEngine {
     }
 
     async logoutAllAccounts() {
-        console.log('[Baileys Pure Engine] Logging out ALL connected WhatsApp accounts...');
+        console.log(`[Baileys Pure Engine ${this.userId}] Logging out ALL connected WhatsApp accounts...`);
         const accIds = Array.from(this.accounts.keys());
 
         for (const accId of accIds) {
@@ -363,7 +365,7 @@ class WhatsAppEngine {
                     await accData.sock.logout().catch(() => {});
                 } catch (e) {}
             }
-            const sessionPath = path.join(__dirname, '.baileys_auth', `session-${accId}`);
+            const sessionPath = path.join(__dirname, '.baileys_auth', `session-${this.userId}_${accId}`);
             try {
                 if (fs.existsSync(sessionPath)) {
                     fs.rmSync(sessionPath, { recursive: true, force: true });
