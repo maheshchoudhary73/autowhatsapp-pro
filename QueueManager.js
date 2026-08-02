@@ -139,14 +139,20 @@ class QueueManager {
         return compiled;
     }
 
-    loadCampaign(contacts, template, settings, routingConfig = {}, mediaObj = null, autoReplyRules = []) {
+    loadCampaign(contacts, template, settings, routingConfig = {}, mediaObj = null, autoReplyRules = [], templates = []) {
         this.stop();
+        const tplList = (templates && templates.length > 0) ? templates : [template];
+        this.templatesList = tplList;
+
         this.queue = contacts.map((c, index) => {
             const phoneInfo = this.extractPhoneFromRow(c);
             const nameInfo = this.extractNameFromRow(c);
+            const tplForThisContact = tplList[index % tplList.length];
+
             return {
                 id: index + 1,
                 data: c,
+                templateToUse: tplForThisContact,
                 name: nameInfo || (phoneInfo ? phoneInfo.raw : `Contact #${index + 1}`),
                 formattedPhone: phoneInfo ? phoneInfo.phone : (c.phone ? (c.phone.includes('@') ? c.phone : `${c.phone}@s.whatsapp.net`) : null),
                 rawPhone: phoneInfo ? phoneInfo.raw : (c.rawPhone || c.phone || 'N/A'),
@@ -163,6 +169,7 @@ class QueueManager {
         this.selectedAccId = routingConfig.selectedAccId || null;
         this.customRatioLimits = routingConfig.customRatioLimits || {};
         this.activeSendingAccounts = routingConfig.activeAccountIds || ['acc_1'];
+
 
         this.accountSendCounts = {};
         this.activeSendingAccounts.forEach(accId => {
@@ -300,7 +307,9 @@ class QueueManager {
 
         pendingItem.status = 'sending';
         pendingItem.assignedAccount = selectedAccId;
-        const compiledMsg = this.compileTemplate(this.template, pendingItem.data);
+        const textToCompile = pendingItem.templateToUse || this.template;
+        const compiledMsg = this.compileTemplate(textToCompile, pendingItem.data);
+
 
         try {
             await this.sendMessageCallback(selectedAccId, pendingItem.formattedPhone, compiledMsg, this.mediaObj);

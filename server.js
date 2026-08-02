@@ -154,13 +154,16 @@ app.get('/api/admin/approve-utr', (req, res) => {
 // Protected HTML Admin Web Dashboard UI
 app.get('/admin', (req, res) => {
     const secret = req.query.secret;
-    const pass = req.query.pass;
+    const email = req.query.email ? req.query.email.trim() : '';
+    const pass = req.query.pass ? req.query.pass.trim() : '';
     const isApprovedAlert = req.query.approved === 'true';
     const approvedUser = req.query.user || '';
     const approvedPlan = req.query.plan || '';
 
-    // Auth Check
-    if (secret !== ADMIN_SECRET && pass !== ADMIN_PASSWORD) {
+    // Strict Admin Auth Check (Email + Password OR Secret Key)
+    const isAuthenticated = (secret === ADMIN_SECRET) || (email === ADMIN_EMAIL && pass === ADMIN_PASSWORD);
+
+    if (!isAuthenticated) {
         return res.send(`
             <!DOCTYPE html>
             <html>
@@ -182,24 +185,29 @@ app.get('/admin', (req, res) => {
             <body>
                 <div class="login-card">
                     <div class="brand-title">👑 Admin Security Portal</div>
-                    <div class="sub-text">Authorized Admin Email: ${ADMIN_EMAIL}</div>
+                    <div class="sub-text">Enter Admin credentials to unlock control panel</div>
                     
                     <form action="/admin" method="GET">
                         <div class="input-group">
+                            <label>Admin Email Address</label>
+                            <input type="email" name="email" placeholder="admin@example.com" required autofocus>
+                        </div>
+                        <div class="input-group">
                             <label>Admin Security Password</label>
-                            <input type="password" name="pass" placeholder="••••••••" required autofocus>
+                            <input type="password" name="pass" placeholder="••••••••" required>
                         </div>
                         <button type="submit">Unlock Admin Control Center</button>
                     </form>
                     
                     <div style="font-size:10px; color:#64748b; margin-top:16px;">
-                        🔒 Strictly Protected. Only ${ADMIN_EMAIL} is authorized.
+                        🔒 Strictly Protected Portal Access
                     </div>
                 </div>
             </body>
             </html>
         `);
     }
+
     
     const payData = loadPendingPayments();
     const payments = payData.payments || [];
@@ -478,9 +486,9 @@ io.on('connection', (socket) => {
             activeAccountIds: connectedAccounts
         };
 
-        const settings = payload.settings || {};
+        const templates = payload.templates && payload.templates.length > 0 ? payload.templates : [template];
+        queueMgr.loadCampaign(contacts, template, settings, routingConfig, mediaObj, autoReplyRules, templates);
 
-        queueMgr.loadCampaign(contacts, template, settings, routingConfig, mediaObj, autoReplyRules);
         queueMgr.start(
             async (accId, phoneJid, messageText, mediaItem) => {
                 const res = await waEngine.sendMessageFrom(accId, phoneJid, messageText, mediaItem);

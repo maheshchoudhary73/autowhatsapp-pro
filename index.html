@@ -649,18 +649,55 @@
                             <div class="ratio-inputs-grid" id="ratio-inputs-grid"></div>
                         </div>
 
-                        <!-- 1. Message Template Editor -->
+                        <!-- 1. Message Template Editor with 5 Anti-Spam Templates -->
                         <div class="form-group">
-                            <label class="form-label">📝 1. Campaign Message Text</label>
+                            <div class="flex-between">
+                                <label class="form-label">📝 1. Campaign Message Templates (Anti-Spam Auto-Rotation)</label>
+                                <span style="font-size:11px; color:var(--accent); font-weight:700;">🛡️ 5 Unique Templates Rotation</span>
+                            </div>
+
                             <div class="tags-row">
                                 <span class="tag-chip" onclick="insertTag('{Name}')">+ {Name}</span>
                                 <span class="tag-chip" onclick="insertTag('{Phone}')">+ {Phone}</span>
                                 <span class="tag-chip" onclick="insertTag('{App_Link}')">+ {App_Link}</span>
                                 <span class="tag-chip" onclick="insertTag('{Offer}')">+ {Offer}</span>
                             </div>
-                            <textarea id="campaign-msg-text" class="form-textarea" rows="4" placeholder="Hello {Name}, Welcome! Download our App here: {App_Link}&#10;Reply 1 for Buy Now | Reply HI for Support">Hello {Name}, Welcome! Download our App here: {App_Link}
+
+                            <!-- TEMPLATE ROTATION TABS -->
+                            <div class="template-tabs-bar" style="display:flex; gap:6px; margin:10px 0 6px 0; overflow-x:auto;">
+                                <button type="button" class="btn btn-secondary btn-sm template-tab active" data-tpl="1" onclick="switchTemplateTab(1)">T1 (Primary)</button>
+                                <button type="button" class="btn btn-secondary btn-sm template-tab" data-tpl="2" onclick="switchTemplateTab(2)">T2 (Variation B)</button>
+                                <button type="button" class="btn btn-secondary btn-sm template-tab" data-tpl="3" onclick="switchTemplateTab(3)">T3 (Variation C)</button>
+                                <button type="button" class="btn btn-secondary btn-sm template-tab" data-tpl="4" onclick="switchTemplateTab(4)">T4 (Variation D)</button>
+                                <button type="button" class="btn btn-secondary btn-sm template-tab" data-tpl="5" onclick="switchTemplateTab(5)">T5 (Variation E)</button>
+                            </div>
+
+                            <!-- 5 TEMPLATE TEXTAREAS -->
+                            <div class="template-boxes-wrapper">
+                                <div class="tpl-box" id="tpl-box-1">
+                                    <textarea id="campaign-msg-text-1" class="form-textarea tpl-textarea" rows="3" oninput="checkDuplicateTemplates()" placeholder="Template 1: Hello {Name}, Welcome! Download app here: {App_Link}">Hello {Name}, Welcome! Download our App here: {App_Link}
 Reply 1 for Buy Now | Reply HI for Support</textarea>
+                                </div>
+                                <div class="tpl-box hidden" id="tpl-box-2">
+                                    <textarea id="campaign-msg-text-2" class="form-textarea tpl-textarea" rows="3" oninput="checkDuplicateTemplates()" placeholder="Template 2: Hi {Name}, check out special offer: {Offer}"></textarea>
+                                </div>
+                                <div class="tpl-box hidden" id="tpl-box-3">
+                                    <textarea id="campaign-msg-text-3" class="form-textarea tpl-textarea" rows="3" oninput="checkDuplicateTemplates()" placeholder="Template 3: Greetings {Name}! Get exclusive details: {App_Link}"></textarea>
+                                </div>
+                                <div class="tpl-box hidden" id="tpl-box-4">
+                                    <textarea id="campaign-msg-text-4" class="form-textarea tpl-textarea" rows="3" oninput="checkDuplicateTemplates()" placeholder="Template 4: Dear {Name}, click here to get started: {App_Link}"></textarea>
+                                </div>
+                                <div class="tpl-box hidden" id="tpl-box-5">
+                                    <textarea id="campaign-msg-text-5" class="form-textarea tpl-textarea" rows="3" oninput="checkDuplicateTemplates()" placeholder="Template 5: Hey {Name}, quick update regarding your account: {Offer}"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- DUPLICATE WARNING ALERT -->
+                            <div id="duplicate-warning-alert" class="hidden" style="margin-top:8px; padding:10px; background:rgba(239, 68, 68, 0.15); border:1px solid var(--danger); border-radius:8px; color:var(--danger); font-size:12px; font-weight:700;">
+                                ⚠️ Duplicate Template Detected! All filled templates must be unique to prevent WhatsApp spam flags. Please write unique message text or clear duplicates.
+                            </div>
                         </div>
+
 
                         <!-- 2. Media File Attachment -->
                         <div class="form-group">

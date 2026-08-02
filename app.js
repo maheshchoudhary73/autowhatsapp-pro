@@ -782,9 +782,15 @@ if (btnStartCampaign) {
             return;
         }
 
-        const messageTemplate = campaignMsgText.value.trim();
-        if (!messageTemplate) {
-            alert('Please enter a campaign message text!');
+        const templates = [];
+        for (let i = 1; i <= 5; i++) {
+            const el = document.getElementById(`campaign-msg-text-${i}`);
+            if (el && el.value.trim().length > 0) {
+                templates.push(el.value.trim());
+            }
+        }
+        if (templates.length === 0) {
+            alert('Please enter at least 1 campaign message template!');
             return;
         }
 
@@ -807,12 +813,14 @@ if (btnStartCampaign) {
 
         const campaignPayload = {
             contacts: parsedContacts,
-            messageTemplate: messageTemplate,
+            messageTemplate: templates[0],
+            templates: templates,
             mediaObj: currentMediaObj,
             dispatchMode: mode,
             specificAccId: selectSpecificAcc.value,
             customQuotas: customQuotas
         };
+
 
         isCampaignRunning = true;
         btnStartCampaign.disabled = false;
