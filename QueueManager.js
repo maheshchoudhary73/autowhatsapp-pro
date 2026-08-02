@@ -1,13 +1,14 @@
 /**
  * QueueManager.js - Multi-Account & Media Dispatch Load Balancer
+ * Official Baileys Engine Adapter (@s.whatsapp.net)
  */
 
 class QueueManager {
     constructor() {
         this.queue = [];
         this.template = '';
-        this.mediaObj = null;              // { data: base64, mimetype, filename }
-        this.autoReplyRules = [];          // Configured keyword rules
+        this.mediaObj = null;
+        this.autoReplyRules = [];
         
         this.routingMode = 'ROUND_ROBIN';  // 'ROUND_ROBIN' | 'SPECIFIC_ACCOUNT' | 'CUSTOM_RATIO'
         this.selectedAccId = null;
@@ -19,8 +20,8 @@ class QueueManager {
         this.settings = {
             maxPerMinute: 30,
             maxPer24Hours: 2000,
-            minDelaySeconds: 3,
-            maxDelaySeconds: 8
+            minDelaySeconds: 2,
+            maxDelaySeconds: 5
         };
 
         this.status = 'idle';
@@ -65,6 +66,10 @@ class QueueManager {
 
     extractPhoneFromRow(row) {
         if (!row) return null;
+        if (row.phone) {
+            const formatted = this.formatPhoneNumber(row.phone);
+            if (formatted) return { phone: formatted, raw: row.rawPhone || row.phone };
+        }
         const phoneKeys = ['phone', 'mobile', 'number', 'contact', 'whatsapp', 'mobile number', 'phone number', 'contact number', 'mob', 'cell'];
         for (const key of Object.keys(row)) {
             const cleanKey = key.toLowerCase().trim();
@@ -82,6 +87,7 @@ class QueueManager {
 
     extractNameFromRow(row) {
         if (!row) return '';
+        if (row.name) return row.name;
         const nameKeys = ['name', 'customer name', 'contact name', 'person name', 'first name', 'full name', 'lead name', 'naam', 'customer'];
         for (const key of Object.keys(row)) {
             const cleanKey = key.toLowerCase().trim();
@@ -110,14 +116,14 @@ class QueueManager {
             cleaned = '91' + cleaned;
         }
 
-        if (cleaned.length >= 11 && cleaned.length <= 15) {
-            return cleaned + '@c.us';
+        if (cleaned.length >= 10 && cleaned.length <= 15) {
+            return cleaned + '@s.whatsapp.net';
         }
         return null;
     }
 
     compileTemplate(template, rowData) {
-        let compiled = template;
+        let compiled = template || '';
         const extractedName = this.extractNameFromRow(rowData);
         const phoneExtracted = this.extractPhoneFromRow(rowData);
 
@@ -126,7 +132,7 @@ class QueueManager {
             compiled = compiled.replace(regex, rowData[key] !== undefined ? rowData[key] : '');
         });
 
-        compiled = compiled.replace(/\{name\}/gi, extractedName);
+        compiled = compiled.replace(/\{name\}/gi, extractedName || 'Customer');
         compiled = compiled.replace(/\{phone\}/gi, phoneExtracted ? phoneExtracted.raw : '');
         compiled = compiled.replace(/Hello\s+,/gi, 'Hello,');
 
@@ -142,8 +148,8 @@ class QueueManager {
                 id: index + 1,
                 data: c,
                 name: nameInfo || (phoneInfo ? phoneInfo.raw : `Contact #${index + 1}`),
-                formattedPhone: phoneInfo ? phoneInfo.phone : null,
-                rawPhone: phoneInfo ? phoneInfo.raw : (c.Phone || c.phone || 'N/A'),
+                formattedPhone: phoneInfo ? phoneInfo.phone : (c.phone ? (c.phone.includes('@') ? c.phone : `${c.phone}@s.whatsapp.net`) : null),
+                rawPhone: phoneInfo ? phoneInfo.raw : (c.rawPhone || c.phone || 'N/A'),
                 status: 'pending',
                 assignedAccount: null,
                 error: null
@@ -168,206 +174,199 @@ class QueueManager {
 
         this.settings = {
             maxPerMinute: dynamicSpeedCap,
-            maxPer24Hours: parseInt(settings.maxPer24Hours) || (200 * activeCount),
-            minDelaySeconds: parseInt(settings.minDelaySeconds) || Math.max(1, Math.floor(60 / dynamicSpeedCap)),
-            maxDelaySeconds: parseInt(settings.maxDelaySeconds) || Math.max(2, Math.floor(120 / dynamicSpeedCap))
+            maxPer24Hours: settings?.maxPer24Hours || 2000,
+            minDelaySeconds: settings?.minDelaySeconds || 2,
+            maxDelaySeconds: settings?.maxDelaySeconds || 4
         };
 
-        this.stats = {
-            total: this.queue.length,
-            sent: 0,
-            failed: 0,
-            pending: this.queue.length,
-            dailySent24h: this.history24h.length,
-            activeAccountsCount: activeCount,
-            speedCapPerMin: dynamicSpeedCap
-        };
-
+        this.stats.total = this.queue.length;
+        this.stats.sent = 0;
+        this.stats.failed = 0;
+        this.stats.pending = this.queue.length;
+        this.stats.activeAccountsCount = activeCount;
+        this.stats.speedCapPerMin = dynamicSpeedCap;
         this.logs = [];
-        this.status = 'idle';
-        this.rrIndex = 0;
+
+        this.status = 'loaded';
     }
 
-    getNextAccountForNextItem() {
+    selectNextAccount() {
         if (!this.activeSendingAccounts || this.activeSendingAccounts.length === 0) {
             return null;
         }
 
         if (this.routingMode === 'SPECIFIC_ACCOUNT' && this.selectedAccId) {
-            return this.activeSendingAccounts.includes(this.selectedAccId) ? this.selectedAccId : this.activeSendingAccounts[0];
+            if (this.activeSendingAccounts.includes(this.selectedAccId)) {
+                return this.selectedAccId;
+            }
         }
 
         if (this.routingMode === 'CUSTOM_RATIO') {
             for (const accId of this.activeSendingAccounts) {
-                const maxQuota = this.customRatioLimits[accId] || 999999;
+                const maxAllowed = this.customRatioLimits[accId] !== undefined ? this.customRatioLimits[accId] : Infinity;
                 const currentSent = this.accountSendCounts[accId] || 0;
-                if (currentSent < maxQuota) {
+                if (currentSent < maxAllowed) {
                     return accId;
                 }
             }
-            return this.activeSendingAccounts[0];
+            return null;
         }
 
-        const targetAccId = this.activeSendingAccounts[this.rrIndex % this.activeSendingAccounts.length];
+        const accId = this.activeSendingAccounts[this.rrIndex % this.activeSendingAccounts.length];
         this.rrIndex++;
-        return targetAccId;
+        return accId;
     }
 
-    async start(sendMessageFromFn, callbacks = {}) {
-        if (this.status === 'running') return;
-        this.sendMessageCallback = sendMessageFromFn;
+    calculateDynamicDelayMs() {
+        const speedCapPerMin = this.stats.speedCapPerMin || 30;
+        const minIntervalMs = Math.ceil((60 * 1000) / speedCapPerMin);
+        const randomBufferMs = Math.floor(Math.random() * 1000) + 500; // 0.5s - 1.5s random jitter
+        return Math.max(minIntervalMs, randomBufferMs);
+    }
+
+    start(sendMessageCallback, callbacks = {}) {
+        if (!sendMessageCallback) throw new Error('sendMessageCallback is required!');
+        
+        this.sendMessageCallback = sendMessageCallback;
         this.onProgress = callbacks.onProgress || null;
         this.onLog = callbacks.onLog || null;
         this.onFinish = callbacks.onFinish || null;
 
         this.status = 'running';
-        this.processNext();
+        this.processNextItem();
     }
 
     pause() {
-        if (this.status === 'running') {
-            this.status = 'paused';
-            if (this.currentTimeout) clearTimeout(this.currentTimeout);
-            this.addLog('system', 'Campaign Paused by User');
-            this.notifyProgress();
+        this.status = 'paused';
+        if (this.currentTimeout) {
+            clearTimeout(this.currentTimeout);
+            this.currentTimeout = null;
         }
+        this.emitLog('info', '⏸️ Campaign dispatch paused.');
+        this.emitProgress();
     }
 
     resume() {
         if (this.status === 'paused') {
             this.status = 'running';
-            this.addLog('system', 'Campaign Resumed by User');
-            this.processNext();
+            this.emitLog('info', '▶️ Campaign dispatch resumed.');
+            this.processNextItem();
         }
     }
 
     stop() {
-        this.status = 'stopped';
-        if (this.currentTimeout) clearTimeout(this.currentTimeout);
-        this.notifyProgress();
+        this.status = 'idle';
+        if (this.currentTimeout) {
+            clearTimeout(this.currentTimeout);
+            this.currentTimeout = null;
+        }
+        this.queue = [];
     }
 
-    async processNext() {
+    async processNextItem() {
         if (this.status !== 'running') return;
 
         this.cleanHistory();
 
-        if (this.history24h.length >= this.settings.maxPer24Hours) {
-            this.addLog('warning', `24-Hour Limit Reached (${this.settings.maxPer24Hours} msgs). Auto-paused.`);
-            this.pause();
-            return;
-        }
-
-        if (this.history1m.length >= this.settings.maxPerMinute) {
-            const oldestIn1m = this.history1m[0];
-            const waitTime = Math.max(1000, 60000 - (Date.now() - oldestIn1m) + 500);
-            this.addLog('info', `Speed limit reached (${this.settings.maxPerMinute} msgs/min across ${this.stats.activeAccountsCount} accounts). Waiting ${Math.ceil(waitTime / 1000)}s...`);
-            this.currentTimeout = setTimeout(() => this.processNext(), waitTime);
-            return;
-        }
-
-        const itemIndex = this.queue.findIndex(item => item.status === 'pending');
-        if (itemIndex === -1) {
+        const pendingItem = this.queue.find(item => item.status === 'pending');
+        if (!pendingItem) {
             this.status = 'completed';
-            this.addLog('success', '🎉 Multi-Account Campaign Completed Successfully!');
-            this.notifyProgress();
-            if (this.onFinish) this.onFinish(this.getSummary());
+            this.emitLog('success', '🎉 Campaign completed successfully!');
+            this.emitProgress();
+            if (this.onFinish) this.onFinish(this.stats);
             return;
         }
 
-        const item = this.queue[itemIndex];
+        const selectedAccId = this.selectNextAccount();
+        if (!selectedAccId) {
+            this.status = 'completed';
+            this.emitLog('warning', '⚠️ All account quotas or limits reached. Campaign finished.');
+            this.emitProgress();
+            if (this.onFinish) this.onFinish(this.stats);
+            return;
+        }
 
-        if (!item.formattedPhone) {
-            item.status = 'failed';
-            item.error = 'Invalid Phone Number';
+        if (!pendingItem.formattedPhone) {
+            pendingItem.status = 'failed';
+            pendingItem.error = 'Invalid Phone Number';
             this.stats.failed++;
             this.stats.pending--;
-            this.addLog('error', `Skipped invalid phone number: ${item.rawPhone}`);
-            this.notifyProgress();
-            this.currentTimeout = setTimeout(() => this.processNext(), 300);
+            this.emitLog('error', `❌ Invalid phone number for contact: ${pendingItem.rawPhone}`);
+            this.emitProgress();
+            
+            this.scheduleNext(500);
             return;
         }
 
-        const accId = this.getNextAccountForNextItem();
-        if (!accId) {
-            this.addLog('error', 'No active WhatsApp account available to send!');
-            this.pause();
-            return;
-        }
-
-        item.assignedAccount = accId;
-        const messageText = this.compileTemplate(this.template, item.data);
-        const displayName = item.name || item.rawPhone;
+        pendingItem.status = 'sending';
+        pendingItem.assignedAccount = selectedAccId;
+        const compiledMsg = this.compileTemplate(this.template, pendingItem.data);
 
         try {
-            const hasMedia = this.mediaObj && this.mediaObj.data;
-            this.addLog('info', `[${accId}] Sending ${hasMedia ? 'Media +' : ''} message to ${displayName} (${item.rawPhone})...`);
-            
-            await this.sendMessageCallback(accId, item.formattedPhone, messageText, this.mediaObj);
+            await this.sendMessageCallback(selectedAccId, pendingItem.formattedPhone, compiledMsg, this.mediaObj);
 
-            // Success
-            item.status = 'sent';
-            const now = Date.now();
-            this.history1m.push(now);
-            this.history24h.push(now);
-            this.accountSendCounts[accId] = (this.accountSendCounts[accId] || 0) + 1;
+            pendingItem.status = 'sent';
             this.stats.sent++;
             this.stats.pending--;
-            this.stats.dailySent24h = this.history24h.length;
+            
+            this.history1m.push(Date.now());
+            this.history24h.push(Date.now());
+            this.accountSendCounts[selectedAccId] = (this.accountSendCounts[selectedAccId] || 0) + 1;
 
-            this.addLog('success', `✅ [${accId}] Sent to ${displayName} (${item.rawPhone})`);
+            const cleanDigits = pendingItem.formattedPhone.replace(/\D/g, '');
+
+            this.emitLog('success', `✅ Sent to +${pendingItem.rawPhone || cleanDigits} from slot (${selectedAccId})`, cleanDigits);
+            this.emitProgress();
+
         } catch (err) {
-            item.status = 'failed';
-            item.error = err.message || 'Send Failed';
+            console.error(`[QueueManager] Send failure for ${pendingItem.formattedPhone}:`, err.message);
+            pendingItem.status = 'failed';
+            pendingItem.error = err.message || 'Send Failed';
             this.stats.failed++;
             this.stats.pending--;
 
-            this.addLog('error', `❌ [${accId}] Failed sending to ${item.rawPhone}: ${item.error}`);
+            const cleanDigits = pendingItem.formattedPhone.replace(/\D/g, '');
+
+            this.emitLog('error', `❌ Failed sending to +${pendingItem.rawPhone || cleanDigits}: ${err.message}`, cleanDigits);
+            this.emitProgress();
         }
 
-        this.notifyProgress();
-
-        if (this.status === 'running' && this.stats.pending > 0) {
-            const minMs = this.settings.minDelaySeconds * 1000;
-            const maxMs = this.settings.maxDelaySeconds * 1000;
-            const randomDelay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-
-            this.addLog('delay', `Waiting ${Math.round(randomDelay / 1000)}s anti-ban delay before next dispatch...`);
-            this.currentTimeout = setTimeout(() => this.processNext(), randomDelay);
-        }
+        const delayMs = this.calculateDynamicDelayMs();
+        this.scheduleNext(delayMs);
     }
 
-    addLog(type, text) {
-        const logEntry = {
-            id: Date.now() + Math.random(),
-            timestamp: new Date().toLocaleTimeString(),
-            type,
-            text
-        };
-        this.logs.unshift(logEntry);
-        if (this.logs.length > 250) this.logs.pop();
-        if (this.onLog) this.onLog(logEntry);
+    scheduleNext(delayMs) {
+        if (this.currentTimeout) clearTimeout(this.currentTimeout);
+        this.currentTimeout = setTimeout(() => {
+            this.processNextItem();
+        }, delayMs);
     }
 
-    notifyProgress() {
+    emitProgress() {
         if (this.onProgress) {
             this.onProgress({
+                sent: this.stats.sent,
+                pending: this.stats.pending,
+                failed: this.stats.failed,
+                total: this.stats.total,
                 status: this.status,
-                stats: this.stats,
-                queue: this.queue,
-                accountSendCounts: this.accountSendCounts
+                dailySent24h: this.stats.dailySent24h,
+                speedCapPerMin: this.stats.speedCapPerMin
             });
         }
     }
 
-    getSummary() {
-        return {
-            status: this.status,
-            stats: this.stats,
-            queue: this.queue,
-            logs: this.logs,
-            accountSendCounts: this.accountSendCounts
+    emitLog(type, text, phone = null) {
+        const logEntry = {
+            type,
+            timestamp: new Date().toLocaleTimeString(),
+            text,
+            phone
         };
+        this.logs.push(logEntry);
+        if (this.onLog) {
+            this.onLog(logEntry);
+        }
     }
 }
 

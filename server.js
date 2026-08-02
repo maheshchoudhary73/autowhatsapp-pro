@@ -1,111 +1,77 @@
 /**
- * server.js - Multi-Account & Dual Login System
- * Express & Socket.io server supporting up to 10 WhatsApp Accounts, QR Scanning & 8-Digit Phone Pairing Code.
+ * AutoWhatsApp Pro - Server Backend Entry Point
+ * Baileys pure QR Engine + Express + Socket.io
  */
-
-const { webcrypto } = require('crypto');
-if (!globalThis.crypto) {
-    globalThis.crypto = webcrypto;
-}
-
-process.on('uncaughtException', (err) => {
-    console.error('⚠️ Server Handled Uncaught Exception:', err.message);
-});
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('⚠️ Server Handled Unhandled Rejection:', reason && reason.message ? reason.message : reason);
-});
 
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-const cors = require('cors');
-const XLSX = require('xlsx');
+const fs = require('fs');
 
 const WhatsAppEngine = require('./whatsappEngine');
 const QueueManager = require('./QueueManager');
 
-const fs = require('fs');
-
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: '*' },
-    maxHttpBufferSize: 1e8 // 100MB max payload for large media attachments
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+// Middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Serve static web app from public directory & root directory
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(__dirname));
 
-app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/socket.io') || req.path.startsWith('/api')) {
-        return next();
-    }
-    const publicIndexPath = path.join(__dirname, 'public', 'index.html');
-    if (fs.existsSync(publicIndexPath)) {
-        return res.sendFile(publicIndexPath);
-    }
-    const rootIndexPath = path.join(__dirname, 'index.html');
-    if (fs.existsSync(rootIndexPath)) {
-        return res.sendFile(rootIndexPath);
-    }
-    res.send('AutoWhatsApp Pro Server Ready');
-});
-
-// Instantiate Core Engines
+// Initialize WhatsApp Baileys Engine & Queue Manager
 const waEngine = new WhatsAppEngine();
 const queueMgr = new QueueManager();
 
-// Defer Multi-Account WhatsApp Engine Init so Express binds PORT instantly for Cloud Health Checks
-setTimeout(() => {
-    try {
-        waEngine.init({
-            onAccountsUpdate: (accountsList) => {
-                io.emit('accounts_update', accountsList);
-            },
-            onAutoReplyLog: (logData) => {
-                io.emit('campaign_log', {
-                    type: 'success',
-                    timestamp: new Date().toLocaleTimeString(),
-                    text: `🤖 [Auto-Responder] Responded to +${logData.from} for keyword "${logData.keyword}"`
-                });
-            }
-        });
-    } catch (err) {
-        console.error('⚠️ WhatsApp Engine deferred init error:', err.message);
-    }
-}, 2000);
+// Broadcast Accounts Update to Socket.io Clients
+waEngine.setOnAccountsUpdate((accounts) => {
+    io.emit('accounts_update', accounts);
+});
 
-// Socket.io Real-time Connection Handler
+// Broadcast Auto-Reply Logs to Socket.io Clients
+waEngine.setOnAutoReplyLog((logData) => {
+    io.emit('auto_reply_log', logData);
+});
+
+// Socket.io Connection Logic
 io.on('connection', (socket) => {
-    console.log('⚡ Web Client Connected (Socket ID:', socket.id, ')');
+    console.log(`[Socket.io] Client connected: ${socket.id}`);
 
-    // Emit initial states
-    socket.emit('accounts_update', waEngine.getAllAccountsState());
-    socket.emit('queue_update', queueMgr.getSummary());
+    // Send current accounts state on connect
+    socket.emit('accounts_update', waEngine.getAccountsState());
 
-    // Event: Add New Account Slot
-    socket.on('add_account', () => {
+    // Event: Request Fresh QR Code for Specific Account Slot
+    socket.on('request_qr', async ({ accId }) => {
         try {
-            waEngine.addAccountSlot();
+            const targetAccId = accId || 'acc_1';
+            const qrCode = await waEngine.requestFreshQR(targetAccId);
+            socket.emit('qr_code_response', { success: true, accId: targetAccId, qrCode });
         } catch (err) {
+            console.error('[Server] request_qr error:', err.message);
             socket.emit('error_alert', { message: err.message });
         }
     });
 
-    // Event: Request Fresh QR Code
-    socket.on('request_qr', async ({ accId }) => {
+    // Event: Add New WhatsApp Account Slot
+    socket.on('add_account', async () => {
         try {
-            if (accId) {
-                await waEngine.requestFreshQR(accId);
-            }
+            const newAcc = await waEngine.addNewAccount();
+            socket.emit('accounts_update', waEngine.getAccountsState());
         } catch (err) {
-            console.error('Error handling request_qr:', err.message);
+            console.error('[Server] add_account error:', err.message);
+            socket.emit('error_alert', { message: err.message });
         }
     });
 
@@ -138,23 +104,34 @@ io.on('connection', (socket) => {
     });
 
     // Event: Start Campaign with Media & Auto-Reply Rules
-    socket.on('start_campaign', ({ contacts, template, settings, routingConfig, mediaObj, autoReplyRules }) => {
+    socket.on('start_campaign', (payload) => {
         const connectedAccounts = waEngine.getConnectedAccountIds();
 
         if (connectedAccounts.length === 0) {
-            socket.emit('error_alert', { message: 'No WhatsApp account is connected! Please scan QR code or enter Pairing Code first.' });
+            socket.emit('error_alert', { message: 'No WhatsApp account is connected! Please scan QR code first.' });
             return;
         }
 
+        const contacts = payload.contacts || [];
         if (!contacts || contacts.length === 0) {
             socket.emit('error_alert', { message: 'No valid contacts found in campaign!' });
             return;
         }
 
-        waEngine.setAutoReplyRules(autoReplyRules || []);
+        const template = payload.messageTemplate || payload.template || '';
+        const mediaObj = payload.mediaObj || null;
+        const autoReplyRules = payload.autoReplyRules || [];
 
-        routingConfig = routingConfig || {};
-        routingConfig.activeAccountIds = connectedAccounts;
+        waEngine.setAutoReplyRules(autoReplyRules);
+
+        const routingConfig = {
+            mode: payload.dispatchMode || 'ROUND_ROBIN',
+            selectedAccId: payload.specificAccId || null,
+            customRatioLimits: payload.customQuotas || {},
+            activeAccountIds: connectedAccounts
+        };
+
+        const settings = payload.settings || {};
 
         queueMgr.loadCampaign(contacts, template, settings, routingConfig, mediaObj, autoReplyRules);
         queueMgr.start(
@@ -163,7 +140,7 @@ io.on('connection', (socket) => {
             },
             {
                 onProgress: (progressData) => {
-                    io.emit('queue_update', progressData);
+                    io.emit('campaign_progress', progressData);
                 },
                 onLog: (logEntry) => {
                     io.emit('campaign_log', logEntry);
@@ -178,52 +155,33 @@ io.on('connection', (socket) => {
     socket.on('pause_campaign', () => queueMgr.pause());
     socket.on('resume_campaign', () => queueMgr.resume());
     socket.on('stop_campaign', () => queueMgr.stop());
+
+    socket.on('disconnect', () => {
+        console.log(`[Socket.io] Client disconnected: ${socket.id}`);
+    });
 });
 
-// REST API for Excel Parsing Fallback
-app.post('/api/parse-excel', (req, res) => {
-    try {
-        const { fileBase64 } = req.body;
-        if (!fileBase64) {
-            return res.status(400).json({ success: false, error: 'No file data provided' });
-        }
-
-        const buffer = Buffer.from(fileBase64.split(',')[1] || fileBase64, 'base64');
-        const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-
-        let rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
-        if (rawRows.length === 0) {
-            return res.status(400).json({ success: false, error: 'Excel sheet is empty!' });
-        }
-
-        let headers = Object.keys(rawRows[0]);
-        const isHeaderAPhoneNumber = headers.some(h => String(h).replace(/\D/g, '').length >= 10);
-        if (isHeaderAPhoneNumber) {
-            const headerRow = {};
-            headers.forEach(h => headerRow[h] = h);
-            rawRows.unshift(headerRow);
-        }
-
-        res.json({
-            success: true,
-            totalRows: rawRows.length,
-            headers,
-            sample: rawRows.slice(0, 5),
-            rows: rawRows
-        });
-    } catch (err) {
-        console.error('Error parsing excel file:', err);
-        res.status(500).json({ success: false, error: err.message });
-    }
+// REST API Health Check Endpoint
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'online',
+        uptime: process.uptime(),
+        connectedAccounts: waEngine.getConnectedAccountIds()
+    });
 });
 
-// Start Express HTTP Server
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`====================================================`);
-    console.log(`🚀 AUTOWHATSAPP PRO ALL-IN-ONE SYSTEM IS READY!`);
-    console.log(`🔗 Web Dashboard URL: http://0.0.0.0:${PORT}`);
-    console.log(`====================================================`);
+// Serve index.html for all other routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Initialize Engine and Start HTTP Server
+waEngine.initAllAccounts().then(() => {
+    server.listen(PORT, () => {
+        console.log(`====================================================`);
+        console.log(`🚀 AutoWhatsApp Pro Cloud Server running on port ${PORT}`);
+        console.log(`====================================================`);
+    });
+}).catch(err => {
+    console.error('Failed to initialize Baileys engine:', err);
 });
