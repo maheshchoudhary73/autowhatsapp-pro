@@ -46,30 +46,6 @@
             }
             return false; // On main tab, allow double-tap back to exit
         };
-
-        // PURE DOM TOGGLE FOR LOGIN BOX CARDS (WORKS 100% INSTANTLY)
-        function selectLoginBoxMode(accId, mode) {
-            var qrBox = document.getElementById('box-qr-' + accId);
-            var phoneBox = document.getElementById('box-phone-' + accId);
-            var qrContainer = document.getElementById('qr-container-' + accId);
-            var phoneContainer = document.getElementById('phone-container-' + accId);
-
-            if (mode === 'QR') {
-                if (qrBox) qrBox.classList.add('active');
-                if (phoneBox) phoneBox.classList.remove('active');
-                if (qrContainer) qrContainer.classList.remove('hidden');
-                if (phoneContainer) phoneContainer.classList.add('hidden');
-            } else if (mode === 'PHONE') {
-                if (phoneBox) phoneBox.classList.add('active');
-                if (qrBox) qrBox.classList.remove('active');
-                if (phoneContainer) phoneContainer.classList.remove('hidden');
-                if (qrContainer) qrContainer.classList.add('hidden');
-            }
-
-            if (window.onLoginModeSwitched) {
-                window.onLoginModeSwitched(accId, mode);
-            }
-        }
     </script>
 </head>
 <body>
