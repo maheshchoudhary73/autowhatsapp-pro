@@ -1036,3 +1036,15 @@ body {
     padding: 4px 8px;
     border-radius: 6px;
 }
+
+/* 2-COLUMN DUAL GRID ROW LAYOUT */
+.dashboard-2col-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+@media (min-width: 900px) {
+    .dashboard-2col-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}

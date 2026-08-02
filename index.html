@@ -70,225 +70,250 @@
             </div>
         </div>
 
-        <!-- MAIN DASHBOARD CONTENT -->
+        <!-- MAIN DASHBOARD CONTENT (3-ROW DUAL GRID LAYOUT) -->
         <main class="dashboard-views" style="padding-bottom:30px;">
             
-            <!-- SECTION 1 (TOP): WHATSAPP ACCOUNTS & QR LOGIN MANAGER -->
-            <div class="glass-card" style="margin-bottom: 20px;">
-                <div class="card-header flex-between">
-                    <h3><i class="fa-brands fa-whatsapp"></i> WhatsApp Accounts & QR Login Manager</h3>
-                    <div class="header-actions">
-                        <button type="button" class="btn btn-primary btn-sm" id="btn-add-account">
-                            <i class="fa-solid fa-plus"></i> Add Account ( 1 /10)
-                        </button>
-                        <button type="button" class="btn btn-danger-soft btn-sm" id="btn-logout-all" title="Logout all">
-                            <i class="fa-solid fa-power-off"></i> Logout All
-                        </button>
+            <!-- ==================================================== -->
+            <!-- ROW 1 (TOP GRID): ACCOUNTS MANAGER & EXCEL UPLOAD -->
+            <!-- ==================================================== -->
+            <div class="dashboard-2col-grid" style="margin-bottom: 20px;">
+                <!-- LEFT GRID: WHATSAPP ACCOUNTS MANAGER -->
+                <div class="glass-card" style="height: 100%;">
+                    <div class="card-header flex-between">
+                        <h3><i class="fa-brands fa-whatsapp"></i> WhatsApp Accounts & QR Manager</h3>
+                        <div class="header-actions">
+                            <button type="button" class="btn btn-primary btn-sm" id="btn-add-account">
+                                <i class="fa-solid fa-plus"></i> Add Account ( 1 /10)
+                            </button>
+                            <button type="button" class="btn btn-danger-soft btn-sm" id="btn-logout-all" title="Logout all">
+                                <i class="fa-solid fa-power-off"></i> Logout All
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="accounts-grid" id="accounts-grid" style="margin-top:12px;">
+                        <div class="acc-loading-box" style="padding: 20px; text-align:center;">
+                            <i class="fa-solid fa-spinner fa-spin" style="font-size:24px; color:var(--primary);"></i>
+                            <div style="margin-top:10px; font-size:13px; font-weight:600;">Loading AutoWhatsApp Cloud Accounts Engine...</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="accounts-grid" id="accounts-grid" style="margin-top:12px;">
-                    <div class="acc-loading-box" style="padding: 20px; text-align:center;">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size:24px; color:var(--primary);"></i>
-                        <div style="margin-top:10px; font-size:13px; font-weight:600;">Loading AutoWhatsApp Cloud Accounts Engine...</div>
+                <!-- RIGHT GRID: PREMIUM EXCEL UPLOADER -->
+                <div class="glass-card config-card" id="sectionExcel" style="height: 100%;">
+                    <div class="card-header flex-between">
+                        <h3><i class="fa-solid fa-file-excel"></i> Excel Contacts Data</h3>
+                        <span class="file-badge" id="excel-file-status">No File</span>
+                    </div>
+
+                    <div class="config-form" style="height: 100%; display: flex; flex-direction: column; justify-content: center;">
+                        <div class="excel-dropzone-premium" id="excel-dropzone">
+                            <div class="excel-icon-wrapper">
+                                <i class="fa-solid fa-file-csv excel-big-icon"></i>
+                            </div>
+                            <div class="excel-title">Upload Excel or CSV File</div>
+                            <div class="excel-sub">Drag & drop your contact sheet or click button below</div>
+                            
+                            <button type="button" class="btn btn-primary btn-md excel-upload-btn">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Choose Excel / CSV File
+                            </button>
+                            
+                            <div class="excel-supported-formats">
+                                <i class="fa-solid fa-circle-info"></i> Supports .xlsx, .xls, .csv files with Phone & Name columns
+                            </div>
+
+                            <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" hidden>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- SECTION 2 (MIDDLE): DASHBOARD GRID (BUILDER + EXCEL + LOGS) -->
-            <div class="dashboard-grid">
-                <!-- LEFT COLUMN: CAMPAIGN & MEDIA BUILDER -->
-                <div class="grid-column left-column">
-                    <div class="glass-card config-card" id="sectionCampaign">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-paper-plane"></i> Campaign Message & Media Builder</h3>
+            <!-- ==================================================== -->
+            <!-- ROW 2 (MIDDLE GRID): CAMPAIGN BUILDER & CONTROLS -->
+            <!-- ==================================================== -->
+            <div class="dashboard-2col-grid" style="margin-bottom: 20px;">
+                <!-- LEFT GRID: CAMPAIGN MESSAGE & MEDIA BUILDER -->
+                <div class="glass-card config-card" id="sectionCampaign" style="height: 100%;">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-paper-plane"></i> Campaign Message & Media Builder</h3>
+                    </div>
+
+                    <div class="config-form">
+                        <!-- Multi-Sender Dispatch Mode -->
+                        <div class="form-group">
+                            <label class="form-label">Multi-Sender Dispatch Mode</label>
+                            <select id="select-routing-mode" class="form-select">
+                                <option value="ROUND_ROBIN">✨ Equal Split / Round-Robin (Distribute messages evenly)</option>
+                                <option value="SPECIFIC_ACCOUNT">🎯 Specific Account (Send from 1 selected number)</option>
+                                <option value="CUSTOM_RATIO">📊 Custom Quotas (Set max quota per number)</option>
+                            </select>
                         </div>
 
-                        <div class="config-form">
-                            <!-- Multi-Sender Dispatch Mode -->
-                            <div class="form-group">
-                                <label class="form-label">Multi-Sender Dispatch Mode</label>
-                                <select id="select-routing-mode" class="form-select">
-                                    <option value="ROUND_ROBIN">✨ Equal Split / Round-Robin (Distribute messages evenly)</option>
-                                    <option value="SPECIFIC_ACCOUNT">🎯 Specific Account (Send from 1 selected number)</option>
-                                    <option value="CUSTOM_RATIO">📊 Custom Quotas (Set max quota per number)</option>
-                                </select>
-                            </div>
+                        <div class="form-group hidden" id="specific-acc-container">
+                            <label class="form-label">Select Active Sender Account</label>
+                            <select id="select-specific-acc" class="form-select"></select>
+                        </div>
 
-                            <div class="form-group hidden" id="specific-acc-container">
-                                <label class="form-label">Select Active Sender Account</label>
-                                <select id="select-specific-acc" class="form-select"></select>
-                            </div>
+                        <div class="custom-ratio-box hidden" id="custom-ratio-container">
+                            <div class="box-title"><i class="fa-solid fa-list-ol"></i> Set Max Messages Per Account</div>
+                            <div class="ratio-inputs-grid" id="ratio-inputs-grid"></div>
+                        </div>
 
-                            <div class="custom-ratio-box hidden" id="custom-ratio-container">
-                                <div class="box-title"><i class="fa-solid fa-list-ol"></i> Set Max Messages Per Account</div>
-                                <div class="ratio-inputs-grid" id="ratio-inputs-grid"></div>
+                        <!-- 1. Message Template Editor -->
+                        <div class="form-group">
+                            <label class="form-label">📝 1. Campaign Message Text</label>
+                            <div class="tags-row">
+                                <span class="tag-chip" onclick="insertTag('{Name}')">+ {Name}</span>
+                                <span class="tag-chip" onclick="insertTag('{Phone}')">+ {Phone}</span>
+                                <span class="tag-chip" onclick="insertTag('{App_Link}')">+ {App_Link}</span>
+                                <span class="tag-chip" onclick="insertTag('{Offer}')">+ {Offer}</span>
                             </div>
-
-                            <!-- Message Template Editor -->
-                            <div class="form-group">
-                                <label class="form-label">📝 1. Campaign Message Text</label>
-                                <div class="tags-row">
-                                    <span class="tag-chip" onclick="insertTag('{Name}')">+ {Name}</span>
-                                    <span class="tag-chip" onclick="insertTag('{Phone}')">+ {Phone}</span>
-                                    <span class="tag-chip" onclick="insertTag('{App_Link}')">+ {App_Link}</span>
-                                    <span class="tag-chip" onclick="insertTag('{Offer}')">+ {Offer}</span>
-                                </div>
-                                <textarea id="campaign-msg-text" class="form-textarea" rows="4" placeholder="Hello {Name}, Welcome! Download our App here: {App_Link}&#10;Reply 1 for Buy Now | Reply HI for Support">Hello {Name}, Welcome! Download our App here: {App_Link}
+                            <textarea id="campaign-msg-text" class="form-textarea" rows="4" placeholder="Hello {Name}, Welcome! Download our App here: {App_Link}&#10;Reply 1 for Buy Now | Reply HI for Support">Hello {Name}, Welcome! Download our App here: {App_Link}
 Reply 1 for Buy Now | Reply HI for Support</textarea>
-                            </div>
+                        </div>
 
-                            <!-- Media File Attachment -->
-                            <div class="form-group">
-                                <label class="form-label">📷 2. Attach Media (Image / Video / PDF)</label>
-                                <div class="media-attach-box" id="mediaAttachBox">
-                                    <input type="file" id="media-file-input" accept="image/*,video/mp4,application/pdf" hidden>
-                                    <div class="media-action-row">
-                                        <button type="button" class="btn btn-secondary btn-sm" id="btn-pick-media">
-                                            <i class="fa-solid fa-paperclip"></i> Pick Media File
-                                        </button>
-                                        <span class="media-name-tag" id="media-name-tag">No File Attached</span>
-                                        <button type="button" class="btn btn-danger-soft btn-sm hidden" id="btn-clear-media" title="Remove attachment">
-                                            <i class="fa-solid fa-xmark"></i>
-                                        </button>
-                                    </div>
+                        <!-- 2. Media File Attachment -->
+                        <div class="form-group">
+                            <label class="form-label">📷 2. Attach Media (Image / Video / PDF)</label>
+                            <div class="media-attach-box" id="mediaAttachBox">
+                                <input type="file" id="media-file-input" accept="image/*,video/mp4,application/pdf" hidden>
+                                <div class="media-action-row">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="btn-pick-media">
+                                        <i class="fa-solid fa-paperclip"></i> Pick Media File
+                                    </button>
+                                    <span class="media-name-tag" id="media-name-tag">No File Attached</span>
+                                    <button type="button" class="btn btn-danger-soft btn-sm hidden" id="btn-clear-media" title="Remove attachment">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
                                 </div>
                             </div>
-
                         </div>
+
                     </div>
                 </div>
 
-                <!-- RIGHT COLUMN: PREMIUM EXCEL UPLOADER & LOGS -->
-                <div class="grid-column right-column">
-                    <!-- NEW PREMIUM UI/UX EXCEL UPLOAD CARD -->
-                    <div class="glass-card config-card" id="sectionExcel">
-                        <div class="card-header flex-between">
-                            <h3><i class="fa-solid fa-file-excel"></i> Excel Contacts Data</h3>
-                            <span class="file-badge" id="excel-file-status">No File</span>
-                        </div>
-
-                        <div class="config-form">
-                            <div class="excel-dropzone-premium" id="excel-dropzone">
-                                <div class="excel-icon-wrapper">
-                                    <i class="fa-solid fa-file-csv excel-big-icon"></i>
-                                </div>
-                                <div class="excel-title">Upload Excel or CSV File</div>
-                                <div class="excel-sub">Drag & drop your contact sheet or click button below</div>
-                                
-                                <button type="button" class="btn btn-primary btn-md excel-upload-btn">
-                                    <i class="fa-solid fa-cloud-arrow-up"></i> Choose Excel / CSV File
-                                </button>
-                                
-                                <div class="excel-supported-formats">
-                                    <i class="fa-solid fa-circle-info"></i> Supports .xlsx, .xls, .csv files with Phone & Name columns
-                                </div>
-
-                                <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" hidden>
-                            </div>
-                        </div>
+                <!-- RIGHT GRID: CONTROLS & EXECUTION LOGS -->
+                <div class="glass-card config-card" id="sectionControls" style="height: 100%;">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-terminal"></i> Controls & Execution Logs</h3>
                     </div>
 
-                    <!-- CONTROLS & EXECUTION LOGS -->
-                    <div class="glass-card config-card" id="sectionControls">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-terminal"></i> Controls & Execution Logs</h3>
+                    <div class="config-form" style="display: flex; flex-direction: column; height: 100%;">
+                        <div class="action-buttons-group">
+                            <button type="button" class="btn btn-success btn-lg full-btn" id="btn-start-campaign">
+                                <i class="fa-solid fa-play"></i> Start Campaign
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-md full-btn" id="btn-export-report" style="margin-top:8px;">
+                                <i class="fa-solid fa-download"></i> Export Report
+                            </button>
                         </div>
 
-                        <div class="config-form">
-                            <div class="action-buttons-group">
-                                <button type="button" class="btn btn-success btn-lg full-btn" id="btn-start-campaign">
-                                    <i class="fa-solid fa-play"></i> Start Campaign
-                                </button>
-                                <button type="button" class="btn btn-secondary btn-md full-btn" id="btn-export-report" style="margin-top:8px;">
-                                    <i class="fa-solid fa-download"></i> Export Report
-                                </button>
+                        <div class="terminal-logs-box" style="margin-top:12px; flex: 1;">
+                            <div class="terminal-header">
+                                <span>Execution Console</span>
+                                <span class="btn-clear" id="btn-clear-terminal">Clear</span>
                             </div>
-
-                            <div class="terminal-logs-box" style="margin-top:12px;">
-                                <div class="terminal-header">
-                                    <span>Execution Console</span>
-                                    <span class="btn-clear" id="btn-clear-terminal">Clear</span>
-                                </div>
-                                <div class="terminal-body" id="terminal-logs">
-                                    <div class="log-entry info"><span class="log-time">[System]</span> AutoWhatsApp Pro ready.</div>
-                                </div>
+                            <div class="terminal-body" id="terminal-logs" style="height: 180px;">
+                                <div class="log-entry info"><span class="log-time">[System]</span> AutoWhatsApp Pro ready.</div>
                             </div>
-
                         </div>
+
                     </div>
                 </div>
             </div>
 
-            <!-- SECTION 3 (BOTTOM): SPEED LOCK & DAILY CAPACITY MATRIX TABLE -->
-            <div class="glass-card" style="margin-top:20px;">
-                <div class="card-header flex-between">
-                    <h3><i class="fa-solid fa-shield-halved"></i> Multi-Account Messaging Speed & Daily Capacity Matrix</h3>
-                    <span class="speed-badge" id="speed-lock-badge">1 Acc = 30 msgs/min</span>
+            <!-- ==================================================== -->
+            <!-- ROW 3 (BOTTOM GRID): SPEED MATRIX TABLE & PROFILE -->
+            <!-- ==================================================== -->
+            <div class="dashboard-2col-grid">
+                <!-- LEFT GRID: SPEED & DAILY SAFE CAPACITY MATRIX TABLE -->
+                <div class="glass-card" style="height: 100%;">
+                    <div class="card-header flex-between">
+                        <h3><i class="fa-solid fa-shield-halved"></i> Messaging Speed & Daily Capacity Matrix</h3>
+                        <span class="speed-badge" id="speed-lock-badge">1 Acc = 30 msgs/min</span>
+                    </div>
+                    
+                    <div style="overflow-x:auto; margin-top:12px;">
+                        <table class="speed-table-matrix">
+                            <thead>
+                                <tr>
+                                    <th>Accounts</th>
+                                    <th>Speed Limit (Max/Min)</th>
+                                    <th>Daily Safe Sending Capacity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="matrix-row active" data-acc="1">
+                                    <td><strong>1 WhatsApp Account</strong></td>
+                                    <td><span class="speed-tag">⚡ 30 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 300 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="2">
+                                    <td><strong>2 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 60 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 1,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="3">
+                                    <td><strong>3 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 100 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 2,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="4">
+                                    <td><strong>4 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 150 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 3,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="5">
+                                    <td><strong>5 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 250 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 4,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="6">
+                                    <td><strong>6 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 350 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 5,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="7">
+                                    <td><strong>7 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 400 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 6,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="8">
+                                    <td><strong>8 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 450 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 7,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="9">
+                                    <td><strong>9 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 500 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 8,500 msgs / day</span></td>
+                                </tr>
+                                <tr class="matrix-row" data-acc="10">
+                                    <td><strong>10 WhatsApp Accounts</strong></td>
+                                    <td><span class="speed-tag">⚡ 600 msgs / min</span></td>
+                                    <td><span class="capacity-tag">📊 Max 10,000 msgs / day</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                
-                <div style="overflow-x:auto; margin-top:12px;">
-                    <table class="speed-table-matrix">
-                        <thead>
-                            <tr>
-                                <th>Connected Accounts</th>
-                                <th>Messaging Speed Limit</th>
-                                <th>Max Daily Capacity (Approx)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr class="matrix-row active" data-acc="1">
-                                <td><strong>1 WhatsApp Account</strong></td>
-                                <td><span class="speed-tag">⚡ 30 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~43,200 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="2">
-                                <td><strong>2 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 60 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~86,400 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="3">
-                                <td><strong>3 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 100 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~144,000 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="4">
-                                <td><strong>4 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 150 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~216,000 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="5">
-                                <td><strong>5 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 250 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~360,000 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="6">
-                                <td><strong>6 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 350 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~504,000 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="7">
-                                <td><strong>7 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 400 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~576,000 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="8">
-                                <td><strong>8 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 450 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~648,000 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="9">
-                                <td><strong>9 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 500 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~720,000 msgs / day</span></td>
-                            </tr>
-                            <tr class="matrix-row" data-acc="10">
-                                <td><strong>10 WhatsApp Accounts</strong></td>
-                                <td><span class="speed-tag">⚡ 600 msgs / min</span></td>
-                                <td><span class="capacity-tag">📊 ~864,000 msgs / day</span></td>
-                            </tr>
-                        </tbody>
-                    </table>
+
+                <!-- RIGHT GRID: USER PROFILE & SYSTEM STATUS (BLANK PLACEHOLDER CARD) -->
+                <div class="glass-card" style="height: 100%;">
+                    <div class="card-header flex-between">
+                        <h3><i class="fa-solid fa-user-gear"></i> User Profile & System Status</h3>
+                        <span class="file-badge" style="background:rgba(16, 185, 129, 0.15); color:var(--success);">Active License</span>
+                    </div>
+
+                    <div style="padding: 20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:12px;">
+                        <div style="width:70px; height:70px; border-radius:50%; background:rgba(0,242,254,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent); font-size:32px; border:1px solid rgba(0,242,254,0.3);">
+                            <i class="fa-solid fa-user-shield"></i>
+                        </div>
+                        <div style="font-size:16px; font-weight:800; color:var(--text-main);">Pro Automation User</div>
+                        <div style="font-size:12px; color:var(--text-muted); max-width:280px;">
+                            Cloud Server Active on <strong>AWS EC2 (eu-north-1)</strong>. Account details and subscription settings will appear here.
+                        </div>
+                    </div>
                 </div>
             </div>
 
