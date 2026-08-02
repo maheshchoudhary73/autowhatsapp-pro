@@ -40,7 +40,7 @@
             var modal = document.getElementById('saas-auth-overlay');
             if (modal) {
                 modal.classList.remove('hidden');
-                modal.style.display = 'flex';
+                modal.style.setProperty('display', 'flex', 'important');
                 modal.style.visibility = 'visible';
                 modal.style.opacity = '1';
                 modal.style.zIndex = '999999';
@@ -51,7 +51,7 @@
             var modal = document.getElementById('saas-auth-overlay');
             if (modal) {
                 modal.classList.add('hidden');
-                modal.style.display = 'none';
+                modal.style.setProperty('display', 'none', 'important');
             }
         };
 
@@ -59,7 +59,7 @@
             var modal = document.getElementById('saas-pricing-modal');
             if (modal) {
                 modal.classList.remove('hidden');
-                modal.style.display = 'flex';
+                modal.style.setProperty('display', 'flex', 'important');
                 modal.style.visibility = 'visible';
                 modal.style.opacity = '1';
                 modal.style.zIndex = '999999';
@@ -70,7 +70,7 @@
             var modal = document.getElementById('saas-pricing-modal');
             if (modal) {
                 modal.classList.add('hidden');
-                modal.style.display = 'none';
+                modal.style.setProperty('display', 'none', 'important');
             }
         };
 
@@ -123,7 +123,7 @@
             var upiModal = document.getElementById('upi-payment-modal');
             if (upiModal) {
                 upiModal.classList.remove('hidden');
-                upiModal.style.display = 'flex';
+                upiModal.style.setProperty('display', 'flex', 'important');
                 upiModal.style.visibility = 'visible';
                 upiModal.style.opacity = '1';
                 upiModal.style.zIndex = '999999';
@@ -134,9 +134,10 @@
             var upiModal = document.getElementById('upi-payment-modal');
             if (upiModal) {
                 upiModal.classList.add('hidden');
-                upiModal.style.display = 'none';
+                upiModal.style.setProperty('display', 'none', 'important');
             }
         };
+
 
         window.scrollToPricingSection = function() {
             var landingSec = document.getElementById('pricing-sec');
