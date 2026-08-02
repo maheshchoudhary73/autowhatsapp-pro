@@ -176,19 +176,10 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
 // GOOGLE SIGN IN (WITH POPUP & REDIRECT FALLBACK)
 if (btnGoogleLogin) {
     btnGoogleLogin.addEventListener('click', () => {
-        if (typeof firebase === 'undefined' || !firebase.auth) {
-            alert('Firebase Auth SDK loading... Please wait 2 seconds and try again.');
-            return;
-        }
-        const provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth().signInWithPopup(provider).catch(err => {
-            console.warn('Google Sign-In Popup Error, retrying redirect:', err);
-            firebase.auth().signInWithRedirect(provider).catch(rErr => {
-                alert('Google Sign-In Note: ' + rErr.message + '\nTip: You can use Email & Password below to sign in or create an account instantly!');
-            });
-        });
+        if (window.handleGoogleLogin) window.handleGoogleLogin();
     });
 }
+
 
 
 // EMAIL SIGN IN / SIGN UP WITH AUTOMATIC HYBRID FALLBACK
