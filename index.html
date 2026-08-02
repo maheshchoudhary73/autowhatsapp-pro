@@ -22,7 +22,134 @@
     <!-- SheetJS (Excel Parser) & Socket.io CDN -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
+
+    <!-- GLOBAL GUARANTEED MODAL & NAVIGATION CONTROLLERS -->
+    <script>
+        window.currentSelectedPlan = 'Starter';
+        window.currentSelectedPrice = '₹299';
+        window.currentSelectedDuration = '1M';
+
+        window.PRICING_MATRIX = {
+            '1M': { starter: '₹299', basic: '₹999', business: '₹2,999', durLabel: '/ month' },
+            '3M': { starter: '₹799', basic: '₹2,699', business: '₹7,999', durLabel: '/ 3 months' },
+            '6M': { starter: '₹1,499', basic: '₹4,999', business: '₹14,999', durLabel: '/ 6 months' }
+        };
+
+        window.openAuthModal = function(mode) {
+            console.log('openAuthModal triggered:', mode);
+            var modal = document.getElementById('saas-auth-overlay');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+                modal.style.visibility = 'visible';
+                modal.style.opacity = '1';
+                modal.style.zIndex = '999999';
+            }
+        };
+
+        window.closeAuthModal = function() {
+            var modal = document.getElementById('saas-auth-overlay');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }
+        };
+
+        window.openPricingModal = function() {
+            var modal = document.getElementById('saas-pricing-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+                modal.style.visibility = 'visible';
+                modal.style.opacity = '1';
+                modal.style.zIndex = '999999';
+            }
+        };
+
+        window.closePricingModal = function() {
+            var modal = document.getElementById('saas-pricing-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }
+        };
+
+        window.switchDuration = function(dur) {
+            window.currentSelectedDuration = dur;
+            var btns = document.querySelectorAll('.duration-btn');
+            for (var i = 0; i < btns.length; i++) {
+                if (btns[i].getAttribute('data-duration') === dur) {
+                    btns[i].classList.add('active');
+                } else {
+                    btns[i].classList.remove('active');
+                }
+            }
+
+            var rates = window.PRICING_MATRIX[dur];
+            if (rates) {
+                var ps = document.getElementById('price-starter'); if (ps) ps.innerText = rates.starter;
+                var ds = document.getElementById('dur-starter'); if (ds) ds.innerText = rates.durLabel;
+
+                var pb = document.getElementById('price-basic'); if (pb) pb.innerText = rates.basic;
+                var db = document.getElementById('dur-basic'); if (db) db.innerText = rates.durLabel;
+
+                var pbiz = document.getElementById('price-business'); if (pbiz) pbiz.innerText = rates.business;
+                var dbiz = document.getElementById('dur-business'); if (dbiz) dbiz.innerText = rates.durLabel;
+            }
+        };
+
+        window.openPaymentModal = function(planName, priceElemId, durElemId) {
+            window.currentSelectedPlan = planName;
+            var priceEl = document.getElementById(priceElemId);
+            var durEl = document.getElementById(durElemId);
+            var priceVal = priceEl ? priceEl.innerText : '₹299';
+            var durVal = durEl ? durEl.innerText : '/ month';
+            window.currentSelectedPrice = priceVal + ' ' + durVal;
+
+            var planLabel = document.getElementById('modal-selected-plan');
+            if (planLabel) planLabel.innerText = planName + ' (' + window.currentSelectedDuration + ')';
+            var priceLabel = document.getElementById('modal-selected-price');
+            if (priceLabel) priceLabel.innerText = window.currentSelectedPrice;
+
+            window.closePricingModal();
+
+            // IF USER IS NOT LOGGED IN: OPEN AUTH MODAL FIRST TO SIGN IN / CREATE ACCOUNT!
+            if (typeof currentUser === 'undefined' || !currentUser) {
+                alert('Please Sign In or Create a Free Account first to activate your subscription!');
+                window.openAuthModal('signup');
+                return;
+            }
+
+            var upiModal = document.getElementById('upi-payment-modal');
+            if (upiModal) {
+                upiModal.classList.remove('hidden');
+                upiModal.style.display = 'flex';
+                upiModal.style.visibility = 'visible';
+                upiModal.style.opacity = '1';
+                upiModal.style.zIndex = '999999';
+            }
+        };
+
+        window.closePaymentModal = function() {
+            var upiModal = document.getElementById('upi-payment-modal');
+            if (upiModal) {
+                upiModal.classList.add('hidden');
+                upiModal.style.display = 'none';
+            }
+        };
+
+        window.scrollToPricingSection = function() {
+            var landingSec = document.getElementById('pricing-sec');
+            var landingWrapper = document.getElementById('saas-landing-page');
+            if (landingSec && landingWrapper && !landingWrapper.classList.contains('hidden')) {
+                landingSec.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                window.openPricingModal();
+            }
+        };
+    </script>
 </head>
+
 <body>
 
     <!-- PUBLIC SAAS LANDING PAGE (VISIBLE WHEN NOT LOGGED IN) -->
