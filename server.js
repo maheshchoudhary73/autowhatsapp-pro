@@ -121,33 +121,115 @@ function savePendingPayments(data) {
     } catch (e) {}
 }
 
-// HTML Admin Web Dashboard UI
+// Admin Auth Constants
+const ADMIN_EMAIL = 'maheshchoudhary7340@gmail.com';
+const ADMIN_PASSWORD = '@@Mahesh@7340';
+const ADMIN_SECRET = 'admin123';
+
+// Admin Route to Approve UTR & Upgrade User
+app.get('/api/admin/approve-utr', (req, res) => {
+    const { utr, secret } = req.query;
+    if (secret !== ADMIN_SECRET && req.query.pass !== ADMIN_PASSWORD) {
+        return res.status(403).send('<h1>🔒 Unauthorized Admin Action</h1>');
+    }
+    
+    const payData = loadPendingPayments();
+    const payment = payData.payments.find(p => p.utrNumber === utr);
+    if (!payment) return res.status(404).send('<h1>❌ UTR Payment Submission Not Found</h1>');
+
+    payment.status = 'APPROVED';
+    savePendingPayments(payData);
+
+    // Upgrade User Quota Database
+    const data = loadUserQuotas();
+    if (data.users[payment.uid]) {
+        data.users[payment.uid].plan = payment.plan || 'PRO';
+        saveUserQuotas(data);
+    }
+
+    // Redirect cleanly back to Admin Control Center with success message!
+    res.redirect(`/admin?secret=${ADMIN_SECRET}&approved=true&user=${encodeURIComponent(payment.email || payment.uid)}&plan=${encodeURIComponent(payment.plan)}`);
+});
+
+// Protected HTML Admin Web Dashboard UI
 app.get('/admin', (req, res) => {
     const secret = req.query.secret;
-    if (secret !== 'admin123') return res.status(403).send('<h1>🔒 403 Forbidden: Invalid Secret Key</h1><p>Usage: /admin?secret=admin123</p>');
+    const pass = req.query.pass;
+    const isApprovedAlert = req.query.approved === 'true';
+    const approvedUser = req.query.user || '';
+    const approvedPlan = req.query.plan || '';
+
+    // Auth Check
+    if (secret !== ADMIN_SECRET && pass !== ADMIN_PASSWORD) {
+        return res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>AutoWhatsApp Pro - Admin Portal Protection</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;800&display=swap" rel="stylesheet">
+                <style>
+                    body { background:#090d16; color:#f8fafc; font-family:'Plus Jakarta Sans', sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:20px; }
+                    .login-card { background:rgba(21, 28, 44, 0.95); border:1px solid rgba(0, 242, 254, 0.3); border-radius:18px; padding:36px; max-width:400px; width:100%; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.5); }
+                    .brand-title { font-size:20px; font-weight:800; color:#25d366; margin-bottom:6px; }
+                    .sub-text { font-size:12px; color:#94a3b8; margin-bottom:24px; }
+                    .input-group { text-align:left; margin-bottom:14px; }
+                    label { font-size:12px; font-weight:700; color:#cbd5e1; display:block; margin-bottom:6px; }
+                    input { width:100%; padding:12px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:#fff; font-size:14px; box-sizing:border-box; }
+                    button { width:100%; padding:12px; background:linear-gradient(135deg, #25d366, #128c7e); border:none; border-radius:8px; color:#000; font-size:14px; font-weight:800; cursor:pointer; margin-top:10px; }
+                </style>
+            </head>
+            <body>
+                <div class="login-card">
+                    <div class="brand-title">👑 Admin Security Portal</div>
+                    <div class="sub-text">Authorized Admin Email: ${ADMIN_EMAIL}</div>
+                    
+                    <form action="/admin" method="GET">
+                        <div class="input-group">
+                            <label>Admin Security Password</label>
+                            <input type="password" name="pass" placeholder="••••••••" required autofocus>
+                        </div>
+                        <button type="submit">Unlock Admin Control Center</button>
+                    </form>
+                    
+                    <div style="font-size:10px; color:#64748b; margin-top:16px;">
+                        🔒 Strictly Protected. Only ${ADMIN_EMAIL} is authorized.
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+    }
     
     const payData = loadPendingPayments();
     const payments = payData.payments || [];
     
     let rowsHtml = payments.map((p, idx) => `
         <tr style="border-bottom:1px solid #334155;">
-            <td style="padding:12px;">${idx + 1}</td>
-            <td style="padding:12px; font-weight:bold;">${p.email || p.uid}</td>
-            <td style="padding:12px; color:#00f2fe;">${p.plan} (${p.duration || '1M'})</td>
-            <td style="padding:12px; color:#10b981; font-weight:bold;">${p.price}</td>
-            <td style="padding:12px; font-family:monospace; background:rgba(255,255,255,0.05);">${p.utrNumber}</td>
-            <td style="padding:12px; font-size:12px; color:#94a3b8;">${new Date(p.timestamp).toLocaleString()}</td>
-            <td style="padding:12px;">
+            <td style="padding:14px;">${idx + 1}</td>
+            <td style="padding:14px; font-weight:700; color:#f8fafc;">${p.email || p.uid}</td>
+            <td style="padding:14px; color:#00f2fe; font-weight:700;">${p.plan} (${p.duration || '1M'})</td>
+            <td style="padding:14px; color:#10b981; font-weight:800;">${p.price}</td>
+            <td style="padding:14px; font-family:monospace; font-size:14px; background:rgba(255,255,255,0.05); letter-spacing:1px;">${p.utrNumber}</td>
+            <td style="padding:14px; font-size:12px; color:#94a3b8;">${new Date(p.timestamp).toLocaleString()}</td>
+            <td style="padding:14px;">
                 ${p.status === 'APPROVED' 
-                    ? '<span style="color:#10b981; font-weight:bold;">✅ APPROVED</span>' 
-                    : `<a href="/api/admin/approve-utr?utr=${p.utrNumber}&secret=admin123" style="background:#25d366; color:#000; padding:6px 14px; border-radius:6px; font-weight:bold; text-decoration:none; display:inline-block;">✅ Approve Plan</a>`}
+                    ? '<span style="color:#10b981; font-weight:800; background:rgba(16,185,129,0.15); padding:6px 12px; border-radius:20px; font-size:12px;">✅ APPROVED</span>' 
+                    : `<a href="/api/admin/approve-utr?utr=${p.utrNumber}&secret=${ADMIN_SECRET}" style="background:linear-gradient(135deg, #25d366, #10b981); color:#000; padding:8px 16px; border-radius:8px; font-weight:800; text-decoration:none; display:inline-block; box-shadow:0 4px 12px rgba(37,211,102,0.3);">✅ Approve Plan</a>`}
             </td>
         </tr>
     `).join('');
 
     if (payments.length === 0) {
-        rowsHtml = `<tr><td colspan="7" style="padding:30px; text-align:center; color:#94a3b8;">No UTR payment submissions found yet.</td></tr>`;
+        rowsHtml = `<tr><td colspan="7" style="padding:40px; text-align:center; color:#94a3b8;">No UTR payment submissions found yet.</td></tr>`;
     }
+
+    const alertBannerHtml = isApprovedAlert ? `
+        <div style="background:rgba(37,211,102,0.15); border:1px solid #25d366; color:#25d366; padding:14px 20px; border-radius:12px; margin-bottom:20px; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:space-between;">
+            <span>🎉 SUCCESS! Plan "${approvedPlan}" has been Approved & Activated for ${approvedUser}!</span>
+            <a href="/admin?secret=${ADMIN_SECRET}" style="color:#fff; text-decoration:none; font-size:12px;">Dismiss ✖</a>
+        </div>
+    ` : '';
 
     res.send(`
         <!DOCTYPE html>
@@ -155,36 +237,48 @@ app.get('/admin', (req, res) => {
         <head>
             <title>AutoWhatsApp Pro - Admin Payment Control Center</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
             <style>
-                body { background:#090d16; color:#f8fafc; font-family:sans-serif; padding:30px; }
-                .card { background:#151c2c; border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:24px; max-width:1100px; margin:0 auto; }
-                table { width:100%; border-collapse:collapse; text-align:left; margin-top:20px; }
-                th { padding:12px; border-bottom:2px solid #334155; color:#00f2fe; }
+                body { background:#090d16; color:#f8fafc; font-family:'Plus Jakarta Sans', sans-serif; padding:30px 20px; margin:0; }
+                .card { background:rgba(21, 28, 44, 0.95); border:1px solid rgba(0, 242, 254, 0.3); border-radius:18px; padding:28px; max-width:1150px; margin:0 auto; box-shadow:0 10px 40px rgba(0,0,0,0.5); }
+                .flex-between { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+                table { width:100%; border-collapse:collapse; text-align:left; margin-top:10px; }
+                th { padding:14px; border-bottom:2px solid #334155; color:#00f2fe; font-size:13px; text-transform:uppercase; letter-spacing:0.5px; }
             </style>
         </head>
         <body>
             <div class="card">
-                <h2>👑 AutoWhatsApp Pro - Admin UTR Payment Verification Center</h2>
-                <p style="color:#94a3b8; font-size:14px;">Review 12-digit UTR numbers submitted by users and click "Approve Plan" to instantly activate their PRO SaaS account.</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>User Email</th>
-                            <th>Selected Plan</th>
-                            <th>Amount</th>
-                            <th>12-Digit UTR No.</th>
-                            <th>Date & Time</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
+                ${alertBannerHtml}
+                <div class="flex-between">
+                    <div>
+                        <h2 style="margin:0; font-size:22px; font-weight:800; color:#f8fafc;">👑 Admin UTR Payment Control Center</h2>
+                        <p style="color:#94a3b8; font-size:13px; margin-top:4px;">Authorized Email: <strong>${ADMIN_EMAIL}</strong></p>
+                    </div>
+                    <a href="/admin" style="background:rgba(239,68,68,0.2); color:#ef4444; border:1px solid rgba(239,68,68,0.4); padding:8px 16px; border-radius:8px; text-decoration:none; font-size:12px; font-weight:700;">🔒 Logout Admin</a>
+                </div>
+                
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>User Email</th>
+                                <th>Selected Plan</th>
+                                <th>Amount</th>
+                                <th>12-Digit UTR No.</th>
+                                <th>Date & Time</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
             </div>
         </body>
         </html>
     `);
 });
+
 
 
 
