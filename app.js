@@ -108,6 +108,15 @@ function scrollToPricingSection() {
 
 // FIREBASE AUTH STATE LISTENER
 if (typeof firebase !== 'undefined' && firebase.auth) {
+    // Process Google OAuth Redirect Login Credential Result
+    firebase.auth().getRedirectResult().then((result) => {
+        if (result && result.user) {
+            console.log('Google Redirect Login Success:', result.user.email);
+        }
+    }).catch((err) => {
+        console.warn('Google Redirect Error:', err.message);
+    });
+
     firebase.auth().onAuthStateChanged((user) => {
         const saasLandingPage = document.getElementById('saas-landing-page');
         if (user) {
@@ -133,9 +142,18 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
 
             if (saasLandingPage) saasLandingPage.classList.add('hidden');
             if (window.closeAuthModal) window.closeAuthModal();
-            if (window.closePricingModal) window.closePricingModal();
-            if (window.closePaymentModal) window.closePaymentModal();
             if (mainAppContainer) mainAppContainer.classList.remove('hidden');
+
+            // Auto-trigger pending payment modal if user clicked subscribe before logging in!
+            if (window.pendingSelectedPlan && window.openPaymentModal) {
+                const pName = window.pendingSelectedPlan;
+                const pId = window.pendingSelectedPriceId || 'price-starter';
+                const dId = window.pendingSelectedDurId || 'dur-starter';
+                window.pendingSelectedPlan = null;
+                setTimeout(() => {
+                    window.openPaymentModal(pName, pId, dId);
+                }, 300);
+            }
 
             // Connect Isolated Socket for User
             initUserSocket(user);
@@ -153,6 +171,7 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
 
     });
 }
+
 
 // GOOGLE SIGN IN (WITH POPUP & REDIRECT FALLBACK)
 if (btnGoogleLogin) {

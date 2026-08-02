@@ -102,13 +102,17 @@
             }
         };
 
+        window.pendingSelectedPlan = null;
+        window.pendingSelectedPriceId = null;
+        window.pendingSelectedDurId = null;
+
         window.openPaymentModal = function(planName, priceElemId, durElemId) {
             window.currentSelectedPlan = planName;
             var priceEl = document.getElementById(priceElemId);
             var durEl = document.getElementById(durElemId);
             var priceVal = priceEl ? priceEl.innerText : '₹299';
             var durVal = durEl ? durEl.innerText : '/ month';
-            window.currentSelectedPrice = priceVal + ' ' + durVal;
+            window.currentSelectedPrice = priceVal + ' ' + (durEl ? durEl.innerText : window.currentSelectedDuration);
 
             var planLabel = document.getElementById('modal-selected-plan');
             if (planLabel) planLabel.innerText = planName + ' (' + window.currentSelectedDuration + ')';
@@ -117,7 +121,11 @@
 
             window.closePricingModal();
 
-            if (typeof currentUser === 'undefined' || !currentUser) {
+            var isUserLoggedIn = window.currentUser || (typeof currentUser !== 'undefined' && currentUser);
+            if (!isUserLoggedIn) {
+                window.pendingSelectedPlan = planName;
+                window.pendingSelectedPriceId = priceElemId;
+                window.pendingSelectedDurId = durElemId;
                 window.openAuthModal('signup');
                 return;
             }
@@ -126,11 +134,12 @@
             if (upiModal) {
                 upiModal.classList.remove('hidden');
                 upiModal.style.setProperty('display', 'flex', 'important');
-                upiModal.style.visibility = 'visible';
-                upiModal.style.opacity = '1';
-                upiModal.style.zIndex = '999999';
+                upiModal.style.setProperty('visibility', 'visible', 'important');
+                upiModal.style.setProperty('opacity', '1', 'important');
+                upiModal.style.setProperty('z-index', '9999999', 'important');
             }
         };
+
 
         window.closePaymentModal = function() {
             var upiModal = document.getElementById('upi-payment-modal');
