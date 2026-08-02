@@ -102,7 +102,7 @@ io.on('connection', (socket) => {
     socket.on('request_qr', async ({ accId }) => {
         try {
             if (accId) {
-                await waEngine.createAccountInstance(accId);
+                await waEngine.requestFreshQR(accId);
             }
         } catch (err) {
             console.error('Error handling request_qr:', err.message);
