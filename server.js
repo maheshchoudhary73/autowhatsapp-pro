@@ -98,6 +98,17 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Event: Request Fresh QR Code
+    socket.on('request_qr', async ({ accId }) => {
+        try {
+            if (accId) {
+                await waEngine.createAccountInstance(accId);
+            }
+        } catch (err) {
+            console.error('Error handling request_qr:', err.message);
+        }
+    });
+
     // Event: Request 8-Digit Phone Pairing Code
     socket.on('request_pairing_code', async ({ accId, phoneNumber }) => {
         try {
