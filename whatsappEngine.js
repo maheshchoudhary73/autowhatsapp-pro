@@ -1,5 +1,5 @@
 /**
- * whatsappEngine.js - Production Grade WhatsApp Engine for AWS Linux & Windows
+ * whatsappEngine.js - Ultra-Fast Reliable WhatsApp Engine with Native Chrome Observers
  */
 
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -247,7 +247,7 @@ class WhatsAppEngine {
     }
 
     /**
-     * Request 8-Digit Phone Pairing Code (with Duplicate Phone Number Protection)
+     * Native Chrome Observer Pair Code Generation (Instant & Reliable)
      */
     async requestPairingCode(accId, phoneNumber) {
         const accData = this.accounts.get(accId);
@@ -271,21 +271,16 @@ class WhatsAppEngine {
             }
         }
 
-        // Wait up to 20 seconds for WhatsApp Web page to be ready
-        let attempts = 0;
-        while (attempts < 20) {
-            if (accData.client.pupPage) {
-                const isReady = await accData.client.pupPage.evaluate(() => {
-                    return typeof window !== 'undefined' && window.Store && window.Store.PairingCode;
-                }).catch(() => false);
-                if (isReady) break;
-            }
-            await new Promise(r => setTimeout(r, 1000));
-            attempts++;
-        }
-
         console.log(`[WhatsApp Engine] Requesting 8-digit pairing code for ${accId} with phone: ${cleanPhone}...`);
+
         try {
+            // Use Chrome native waitForFunction for instant event triggering
+            if (accData.client.pupPage) {
+                await accData.client.pupPage.waitForFunction(() => {
+                    return typeof window !== 'undefined' && window.Store && window.Store.PairingCode;
+                }, { timeout: 15000 }).catch(() => {});
+            }
+
             const code = await accData.client.requestPairingCode(cleanPhone);
             accData.pairingCode = code;
             accData.status = 'PAIRING_CODE_READY';
