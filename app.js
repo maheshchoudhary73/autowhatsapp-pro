@@ -112,8 +112,14 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
         const saasLandingPage = document.getElementById('saas-landing-page');
         if (user) {
             currentUser = user;
+            window.currentUser = user;
             console.log('Firebase User Authenticated:', user.email || user.uid);
             
+            // Clean URL hash (e.g. #pricing-sec) on login
+            if (window.location.hash) {
+                try { history.replaceState(null, null, window.location.pathname); } catch(e){}
+            }
+
             // Render Profile UI
             const displayName = user.displayName || user.email?.split('@')[0] || 'Pro SaaS User';
             const avatarUrl = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00f2fe&color=fff`;
@@ -126,7 +132,9 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             if (sidebarUserAvatar) sidebarUserAvatar.src = avatarUrl;
 
             if (saasLandingPage) saasLandingPage.classList.add('hidden');
-            if (saasAuthOverlay) closeAuthModal();
+            if (window.closeAuthModal) window.closeAuthModal();
+            if (window.closePricingModal) window.closePricingModal();
+            if (window.closePaymentModal) window.closePaymentModal();
             if (mainAppContainer) mainAppContainer.classList.remove('hidden');
 
             // Connect Isolated Socket for User
@@ -134,13 +142,15 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
 
         } else {
             currentUser = null;
+            window.currentUser = null;
             if (saasLandingPage) saasLandingPage.classList.remove('hidden');
-            if (saasAuthOverlay) closeAuthModal();
+            if (window.closeAuthModal) window.closeAuthModal();
             if (mainAppContainer) mainAppContainer.classList.add('hidden');
             if (socket) {
                 socket.disconnect();
             }
         }
+
     });
 }
 
@@ -328,12 +338,6 @@ function initUserSocket(user) {
                 }
                 if (sidebarPlanBadge) {
                     sidebarPlanBadge.textContent = 'Free Trial';
-                    sidebarPlanBadge.style.color = 'var(--accent)';
-                }
-            }
-        }
-    });
-
                     sidebarPlanBadge.style.color = 'var(--accent)';
                 }
             }

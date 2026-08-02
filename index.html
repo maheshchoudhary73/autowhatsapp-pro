@@ -117,7 +117,7 @@
 
             window.closePricingModal();
 
-            if (typeof window.currentUser === 'undefined' || !window.currentUser) {
+            if (typeof currentUser === 'undefined' || !currentUser) {
                 window.openAuthModal('signup');
                 return;
             }
@@ -164,7 +164,7 @@
         };
 
         window.addNewTemplateTab = function() {
-            var isPaid = (typeof window.currentUserQuota !== 'undefined' && window.currentUserQuota && window.currentUserQuota.plan && window.currentUserQuota.plan !== 'FREE' && window.currentUserQuota.plan !== 'FREE_EXPIRED');
+            var isPaid = (typeof currentUserQuota !== 'undefined' && currentUserQuota && currentUserQuota.plan && currentUserQuota.plan !== 'FREE' && currentUserQuota.plan !== 'FREE_EXPIRED');
             var maxAllowed = isPaid ? 10 : 2;
 
             if (window.totalTemplatesCount >= maxAllowed) {
@@ -260,6 +260,117 @@
             }
         };
 
+
+
+
+
+        window.handleGoogleLogin = function() {
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+            var provider = new firebase.auth.GoogleAuthProvider();
+            firebase.auth().signInWithPopup(provider).catch(function(err) {
+                firebase.auth().signInWithRedirect(provider).catch(function(rErr) {
+                    alert('Google Sign-In Note: ' + rErr.message + '\nPlease use Email/Password or 1-Click Guest Access below.');
+                });
+            });
+        };
+
+        window.handleEmailLogin = function() {
+            var emailEl = document.getElementById('auth-email');
+            var passEl = document.getElementById('auth-password');
+            var email = emailEl ? emailEl.value.trim() : '';
+            var password = passEl ? passEl.value.trim() : '';
+
+            if (!email || !password) {
+                alert('Please enter your Email Address and Password!');
+                return;
+            }
+
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+
+            var btn = document.getElementById('btn-email-login');
+            if (btn) { btn.disabled = true; btn.innerText = 'Signing In...'; }
+
+            firebase.auth().signInWithEmailAndPassword(email, password).catch(function(err) {
+                if (err.code === 'auth/user-not-found') {
+                    firebase.auth().createUserWithEmailAndPassword(email, password).catch(function(cErr) {
+                        alert('Account Error: ' + cErr.message);
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In'; }
+                    });
+                } else {
+                    alert('Sign-In Error: ' + err.message);
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In'; }
+                }
+            });
+        };
+
+        window.handleEmailSignup = function() {
+            var emailEl = document.getElementById('auth-email');
+            var passEl = document.getElementById('auth-password');
+            var email = emailEl ? emailEl.value.trim() : '';
+            var password = passEl ? passEl.value.trim() : '';
+
+            if (!email || !password) {
+                alert('Please enter your Email Address and Password!');
+                return;
+            }
+            if (password.length < 6) {
+                alert('Password must be at least 6 characters long!');
+                return;
+            }
+
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+
+            var btn = document.getElementById('btn-email-signup');
+            if (btn) { btn.disabled = true; btn.innerText = 'Creating Account...'; }
+
+            firebase.auth().createUserWithEmailAndPassword(email, password).catch(function(err) {
+                if (err.code === 'auth/email-already-in-use') {
+                    firebase.auth().signInWithEmailAndPassword(email, password).catch(function(sErr) {
+                        alert('Sign-In Error: ' + sErr.message);
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account'; }
+                    });
+                } else {
+                    alert('Registration Error: ' + err.message);
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account'; }
+                }
+            });
+        };
+
+        window.handleGuestLogin = function() {
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+
+            var guestBtn = document.getElementById('btn-guest-login');
+            if (guestBtn) {
+                guestBtn.disabled = true;
+                guestBtn.innerText = 'Connecting Guest Access...';
+            }
+
+            var guestEmail = 'guest_' + Math.floor(Math.random() * 1000000) + '@autowhatsapp.com';
+            var guestPass = 'guest123456';
+
+            firebase.auth().createUserWithEmailAndPassword(guestEmail, guestPass).catch(function(err) {
+                firebase.auth().signInWithEmailAndPassword(guestEmail, guestPass).catch(function(gErr) {
+                    alert('Guest login error: ' + gErr.message);
+                    if (guestBtn) {
+                        guestBtn.disabled = false;
+                        guestBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access';
+                    }
+                });
+            });
+        };
+
         window.scrollToPricingSection = function() {
             var landingSec = document.getElementById('pricing-sec');
             var landingWrapper = document.getElementById('saas-landing-page');
@@ -270,6 +381,7 @@
             }
         };
     </script>
+
 </head>
 
 <body>
@@ -442,7 +554,7 @@
             </div>
 
             <!-- GOOGLE ONE-CLICK SIGN IN -->
-            <button type="button" class="btn-google-auth" id="btn-google-login">
+            <button type="button" class="btn-google-auth" id="btn-google-login" onclick="handleGoogleLogin()">
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
                 <span>Continue with Google</span>
             </button>
@@ -463,18 +575,19 @@
                 </div>
 
                 <div class="auth-actions-row" style="margin-top:16px;">
-                    <button type="button" class="btn btn-primary full-btn" id="btn-email-login">
+                    <button type="button" class="btn btn-primary full-btn" id="btn-email-login" onclick="handleEmailLogin()">
                         <i class="fa-solid fa-right-to-bracket"></i> Sign In
                     </button>
-                    <button type="button" class="btn btn-secondary full-btn" id="btn-email-signup" style="margin-top:8px;">
+                    <button type="button" class="btn btn-secondary full-btn" id="btn-email-signup" onclick="handleEmailSignup()" style="margin-top:8px;">
                         <i class="fa-solid fa-user-plus"></i> Create New Account
                     </button>
-                    <button type="button" class="btn full-btn" id="btn-guest-login" style="margin-top:8px; background:rgba(0,242,254,0.15); color:var(--accent); border:1px solid rgba(0,242,254,0.3); font-weight:700;">
+                    <button type="button" class="btn full-btn" id="btn-guest-login" onclick="handleGuestLogin()" style="margin-top:8px; background:rgba(0,242,254,0.15); color:var(--accent); border:1px solid rgba(0,242,254,0.3); font-weight:700;">
                         <i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access
                     </button>
                 </div>
 
             </form>
+
 
             <div class="auth-footer-text">
                 🔒 100% Encrypted & Private. Your WhatsApp accounts are strictly isolated.
@@ -491,6 +604,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
+
 
             <!-- DURATION TOGGLE SWITCHER -->
             <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:10px; margin-bottom:24px;">
@@ -629,9 +743,10 @@
 
             <!-- USER SAAS PROFILE & UPGRADE HEADER -->
             <div class="user-header-profile" id="user-header-profile">
-                <button type="button" class="btn btn-primary btn-sm" onclick="scrollToPricingSection()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                <button type="button" class="btn btn-primary btn-sm" onclick="window.openPricingModal()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 12px rgba(245,158,11,0.3);">
                     <i class="fa-solid fa-crown"></i> Upgrade Plan
                 </button>
+
 
                 <div class="user-info-box">
                     <img src="https://ui-avatars.com/api/?name=User" id="user-avatar-img" class="user-avatar" alt="Avatar">
