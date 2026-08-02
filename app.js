@@ -1,6 +1,6 @@
 /**
  * AutoWhatsApp Pro - Official Mobile & Web Frontend Logic
- * Direct 0-Click Pure QR Engine Version + Dynamic Excel Data Preview Table
+ * Pure QR Engine + Smart Excel Data Parser (Exact Excel Display, Multi-Column Support & Live Table Status)
  */
 
 const RENDER_CLOUD_URL = 'http://16.16.160.123:3000';
@@ -101,6 +101,9 @@ socket.on('campaign_progress', (data) => {
 
 socket.on('campaign_log', (log) => {
     appendTerminalLog(log);
+    if (log && log.phone) {
+        updateContactTableStatus(log.phone, log.type === 'success' ? 'Sent' : 'Failed');
+    }
 });
 
 socket.on('auto_reply_log', (data) => {
@@ -218,6 +221,12 @@ window.logoutAccount = function(accId) {
     }
 };
 
+window.triggerExcelFilePicker = function() {
+    if (excelFileInput) {
+        excelFileInput.click();
+    }
+};
+
 if (btnAddAccount) {
     btnAddAccount.addEventListener('click', () => {
         const hasUnconnected = accountsState.some(a => a.status !== 'CONNECTED');
@@ -274,11 +283,11 @@ btnClearMedia.addEventListener('click', () => {
     btnClearMedia.classList.add('hidden');
 });
 
-// EXCEL PARSER & DYNAMIC DATA PREVIEW TABLE
+// EXCEL PARSER & SMART MULTI-COLUMN DATA TABLE PREVIEW
 if (excelDropzone) {
     excelDropzone.addEventListener('click', (e) => {
         if (!e.target.closest('button') && !e.target.closest('table')) {
-            excelFileInput.click();
+            triggerExcelFilePicker();
         }
     });
 
@@ -325,26 +334,45 @@ function handleExcelUpload() {
 
             const headers = rows[0].map(h => String(h || '').trim().toLowerCase());
             
-            let phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile') || h.includes('number') || h.includes('contact'));
-            let nameIdx = headers.findIndex(h => h.includes('name') || h.includes('user') || h.includes('customer'));
+            let phoneIdx = headers.findIndex(h => 
+                h.includes('phone') || h.includes('mobile') || h.includes('number') || 
+                h.includes('contact') || h.includes('whatsapp') || h.includes('tel') || h.includes('cell')
+            );
+            
+            let nameIdx = headers.findIndex(h => 
+                h.includes('name') || h.includes('customer') || h.includes('user') || h.includes('client')
+            );
 
+            // Smart fallback if phone header not found by keyword
+            if (phoneIdx === -1) {
+                for (let c = 0; c < (rows[1] || []).length; c++) {
+                    const sampleVal = String(rows[1][c] || '').replace(/\D/g, '');
+                    if (sampleVal.length >= 10) {
+                        phoneIdx = c;
+                        break;
+                    }
+                }
+            }
             if (phoneIdx === -1) phoneIdx = 0;
-            if (nameIdx === -1) nameIdx = 1;
+
+            const hasValidNameCol = (nameIdx !== -1 && nameIdx !== phoneIdx);
 
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
                 if (!row || row.length === 0) continue;
 
-                let rawPhone = row[phoneIdx] ? String(row[phoneIdx]).trim() : '';
-                let name = (nameIdx !== -1 && row[nameIdx]) ? String(row[nameIdx]).trim() : 'Customer';
+                let rawPhone = row[phoneIdx] !== undefined && row[phoneIdx] !== null ? String(row[phoneIdx]).trim() : '';
+                let rawName = hasValidNameCol && row[nameIdx] !== undefined && row[nameIdx] !== null ? String(row[nameIdx]).trim() : `Contact ${i}`;
 
                 let cleanPhone = rawPhone.replace(/\D/g, '');
 
                 if (cleanPhone.length >= 10) {
                     parsedContacts.push({
-                        name: name || 'Customer',
+                        id: i,
+                        name: rawName || `Contact ${i}`,
                         phone: cleanPhone,
-                        rawPhone: rawPhone
+                        rawPhone: rawPhone, // Preserves exact string e.g. +91 99096 66331 or 9909666331
+                        status: 'Pending'
                     });
                 }
             }
@@ -360,45 +388,8 @@ function handleExcelUpload() {
                 </div>
             `;
 
-            // DYNAMIC EXCEL DATA PREVIEW TABLE RENDER
-            let tableRowsHtml = '';
-            parsedContacts.slice(0, 10).forEach((c, idx) => {
-                tableRowsHtml += `
-                    <tr>
-                        <td>${idx + 1}</td>
-                        <td><strong>${c.name}</strong></td>
-                        <td>+${c.phone}</td>
-                    </tr>
-                `;
-            });
-
-            excelDropzone.innerHTML = `
-                <div style="text-align:left; width:100%; cursor:default;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <span style="font-size:13px; font-weight:700; color:var(--success);">
-                            <i class="fa-solid fa-file-csv"></i> ${file.name} (${parsedContacts.length} Contacts)
-                        </span>
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('excel-file-input').click()">
-                            <i class="fa-solid fa-rotate"></i> Change File
-                        </button>
-                    </div>
-                    <div style="max-height:200px; overflow-y:auto; border:1px solid var(--card-border); border-radius:8px;">
-                        <table class="speed-table-matrix" style="font-size:11px;">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Name</th>
-                                    <th>Phone Number</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${tableRowsHtml}
-                            </tbody>
-                        </table>
-                    </div>
-                    ${parsedContacts.length > 10 ? `<div style="font-size:10px; color:var(--text-muted); margin-top:6px; text-align:center;">Showing first 10 of ${parsedContacts.length} loaded contacts...</div>` : ''}
-                </div>
-            `;
+            // RENDER FULL DYNAMIC EXCEL PREVIEW TABLE WITH STATUS COLUMN
+            renderExcelPreviewTable(file.name);
 
             appendTerminalLog({
                 type: 'success',
@@ -412,6 +403,65 @@ function handleExcelUpload() {
         }
     };
     reader.readAsArrayBuffer(file);
+}
+
+function renderExcelPreviewTable(fileName) {
+    if (!excelDropzone) return;
+
+    let tableRowsHtml = '';
+    parsedContacts.forEach((c, idx) => {
+        tableRowsHtml += `
+            <tr id="contact-row-${c.phone}">
+                <td>${idx + 1}</td>
+                <td><strong>${c.name}</strong></td>
+                <td>${c.rawPhone || c.phone}</td>
+                <td id="contact-status-${c.phone}">
+                    <span class="status-chip pending" style="background:rgba(245,158,11,0.15); color:var(--warning); padding:3px 8px; border-radius:4px; font-weight:600; font-size:10px;">
+                        ⏳ Pending
+                    </span>
+                </td>
+            </tr>
+        `;
+    });
+
+    excelDropzone.innerHTML = `
+        <div style="text-align:left; width:100%; cursor:default;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                <span style="font-size:13px; font-weight:700; color:var(--success);">
+                    <i class="fa-solid fa-file-csv"></i> ${fileName} (${parsedContacts.length} Contacts)
+                </span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="triggerExcelFilePicker()">
+                    <i class="fa-solid fa-rotate"></i> Change File
+                </button>
+            </div>
+            <div style="max-height:220px; overflow-y:auto; border:1px solid var(--card-border); border-radius:8px;">
+                <table class="speed-table-matrix" style="font-size:11px;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Phone Number (As Written)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRowsHtml}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function updateContactTableStatus(cleanPhone, statusStr) {
+    const el = document.getElementById(`contact-status-${cleanPhone}`);
+    if (el) {
+        if (statusStr === 'Sent') {
+            el.innerHTML = `<span style="background:rgba(16,185,129,0.15); color:var(--success); padding:3px 8px; border-radius:4px; font-weight:600; font-size:10px;">✅ Sent</span>`;
+        } else if (statusStr === 'Failed') {
+            el.innerHTML = `<span style="background:rgba(239,68,68,0.15); color:var(--danger); padding:3px 8px; border-radius:4px; font-weight:600; font-size:10px;">❌ Failed</span>`;
+        }
+    }
 }
 
 // CAMPAIGN CONTROLLER
