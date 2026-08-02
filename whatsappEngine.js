@@ -394,6 +394,10 @@ class WhatsAppEngine {
         return result;
     }
 
+    getAccountsState() {
+        return this.getAllAccountsState();
+    }
+
     getConnectedAccountIds() {
         const connected = [];
         for (const [accId, accData] of this.accounts) {
