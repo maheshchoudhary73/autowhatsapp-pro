@@ -1,5 +1,5 @@
 /**
- * whatsappEngine.js - Ultra-Fast Reliable WhatsApp Engine with Native Chrome Observers
+ * whatsappEngine.js - Official Production WhatsApp Engine for AWS Linux & Windows
  */
 
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -91,10 +91,11 @@ class WhatsAppEngine {
 
         const puppeteerConfig = {
             headless: true,
+            protocolTimeout: 120000,
             args: puppeteerArgs
         };
 
-        // Check if Linux chromium-browser or google-chrome-stable exists on AWS
+        // Check Linux Chromium path
         const linuxPaths = [
             '/usr/bin/chromium-browser',
             '/usr/bin/chromium',
@@ -110,22 +111,18 @@ class WhatsAppEngine {
             }
         }
 
+        // Clean WhatsApp Web Instance using official Meta Web bundle directly
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: accId,
                 dataPath: authPath
             }),
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-            webVersionCache: {
-                type: 'remote',
-                remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014500914-alpha.html'
-            },
             puppeteer: puppeteerConfig
         });
 
         accData.client = client;
 
-        // QR Code Event (Fast 3-Second QR Generation)
+        // QR Code Event (Fast Generation)
         client.on('qr', async (qr) => {
             try {
                 accData.qrCodeDataUrl = await QRCode.toDataURL(qr);
@@ -153,7 +150,6 @@ class WhatsAppEngine {
                 const currentWid = info.wid ? info.wid.user : '';
                 const currentPush = info.pushname || 'WhatsApp Account';
 
-                // Check if this phone number is ALREADY connected on another slot
                 if (currentWid) {
                     for (const [existingId, existingAcc] of this.accounts) {
                         if (existingId !== accId && existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid === currentWid) {
@@ -247,7 +243,7 @@ class WhatsAppEngine {
     }
 
     /**
-     * Native Chrome Observer Pair Code Generation (Instant & Reliable)
+     * Reliable 8-Digit Phone Pairing Code Generation
      */
     async requestPairingCode(accId, phoneNumber) {
         const accData = this.accounts.get(accId);
@@ -260,7 +256,6 @@ class WhatsAppEngine {
             throw new Error('Please enter a valid 10 to 12 digit phone number (e.g. 917340216019)');
         }
 
-        // Check if phone number is ALREADY connected on another slot
         const raw10 = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
         for (const [existingId, existingAcc] of this.accounts) {
             if (existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid) {
@@ -274,11 +269,17 @@ class WhatsAppEngine {
         console.log(`[WhatsApp Engine] Requesting 8-digit pairing code for ${accId} with phone: ${cleanPhone}...`);
 
         try {
-            // Use Chrome native waitForFunction for instant event triggering
-            if (accData.client.pupPage) {
-                await accData.client.pupPage.waitForFunction(() => {
-                    return typeof window !== 'undefined' && window.Store && window.Store.PairingCode;
-                }, { timeout: 15000 }).catch(() => {});
+            // Wait for WhatsApp Web instance to be fully initialized
+            let waitAttempts = 0;
+            while (waitAttempts < 15) {
+                if (accData.client.pupPage) {
+                    const pageLoaded = await accData.client.pupPage.evaluate(() => {
+                        return typeof window !== 'undefined' && document.querySelector('canvas, [data-icon="scan"]') !== null;
+                    }).catch(() => false);
+                    if (pageLoaded) break;
+                }
+                await new Promise(r => setTimeout(r, 1000));
+                waitAttempts++;
             }
 
             const code = await accData.client.requestPairingCode(cleanPhone);
@@ -289,7 +290,7 @@ class WhatsAppEngine {
             return code;
         } catch (err) {
             console.error(`[WhatsApp Engine] Error requesting pairing code for ${accId}:`, err.message);
-            throw new Error(`Failed to request pairing code: ${err.message}`);
+            throw new Error(`Failed to request pairing code: ${err.message || 'WhatsApp Web initialization pending'}`);
         }
     }
 
@@ -298,7 +299,6 @@ class WhatsAppEngine {
             throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
         }
 
-        // RULE: Do not allow adding a new account slot until the current slot is 100% connected
         for (const [accId, accData] of this.accounts) {
             if (accData.status !== 'CONNECTED') {
                 throw new Error(`Please scan or pair the current WhatsApp QR / Code before adding a new account!`);
