@@ -44,31 +44,48 @@ function saveUserQuotas(data) {
 }
 
 // Helper to get or initialize user quota record
-function getUserQuotaRecord(uid, email = '') {
+function getUserQuotaRecord(uid, email) {
     const data = loadUserQuotas();
     const todayStr = new Date().toISOString().split('T')[0];
+    const nowMs = Date.now();
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
     if (!data.users[uid]) {
         data.users[uid] = {
             uid,
             email,
-            plan: 'FREE', // 'FREE' | 'PRO'
+            plan: 'FREE', // 'FREE' | 'PRO' | 'Starter' | 'Basic' | 'Business' | 'FREE_EXPIRED'
+            createdAt: nowMs,
             dailyMaxQuota: 50,
             dailySentToday: 0,
             lastResetDate: todayStr
         };
         saveUserQuotas(data);
     } else {
+        if (!data.users[uid].createdAt) {
+            data.users[uid].createdAt = nowMs;
+            saveUserQuotas(data);
+        }
+
         // Reset daily counter at midnight
         if (data.users[uid].lastResetDate !== todayStr) {
             data.users[uid].dailySentToday = 0;
             data.users[uid].lastResetDate = todayStr;
             saveUserQuotas(data);
         }
+
+        // Check 7-Day Free Trial Expiry for FREE users
+        const isFree = !data.users[uid].plan || data.users[uid].plan === 'FREE';
+        if (isFree && (nowMs - data.users[uid].createdAt) > SEVEN_DAYS_MS) {
+            data.users[uid].plan = 'FREE_EXPIRED';
+            data.users[uid].dailyMaxQuota = 0;
+            saveUserQuotas(data);
+        }
     }
 
     return data.users[uid];
 }
+
 
 // Increment user sent count
 function incrementUserSentCount(uid, count = 1) {
@@ -83,10 +100,56 @@ function incrementUserSentCount(uid, count = 1) {
 function setUserPlan(uid, planTier) {
     const data = loadUserQuotas();
     if (data.users[uid]) {
-        data.users[uid].plan = planTier; // 'PRO' or 'FREE'
+        data.users[uid].plan = planTier; // 'PRO', 'Starter', 'Basic', 'Business' or 'FREE'
         saveUserQuotas(data);
     }
 }
+
+// Pending Payments Storage
+const PAYMENTS_FILE = path.join(__dirname, 'pending_payments.json');
+function loadPendingPayments() {
+    try {
+        if (fs.existsSync(PAYMENTS_FILE)) {
+            return JSON.parse(fs.readFileSync(PAYMENTS_FILE, 'utf8'));
+        }
+    } catch (e) {}
+    return { payments: [] };
+}
+function savePendingPayments(data) {
+    try {
+        fs.writeFileSync(PAYMENTS_FILE, JSON.stringify(data, null, 2));
+    } catch (e) {}
+}
+
+// Admin Route to View All Pending UTR Submissions
+app.get('/api/admin/pending-payments', (req, res) => {
+    const secret = req.query.secret;
+    if (secret !== 'admin123') return res.status(403).json({ error: 'Unauthorized' });
+    res.json(loadPendingPayments());
+});
+
+// Admin Route to Approve UTR & Upgrade User
+app.get('/api/admin/approve-utr', (req, res) => {
+    const { utr, secret } = req.query;
+    if (secret !== 'admin123') return res.status(403).json({ error: 'Unauthorized' });
+    
+    const payData = loadPendingPayments();
+    const payment = payData.payments.find(p => p.utrNumber === utr);
+    if (!payment) return res.status(404).json({ error: 'UTR payment submission not found' });
+
+    payment.status = 'APPROVED';
+    savePendingPayments(payData);
+
+    // Upgrade User Quota
+    const data = loadUserQuotas();
+    if (data.users[payment.uid]) {
+        data.users[payment.uid].plan = payment.plan || 'PRO';
+        saveUserQuotas(data);
+    }
+
+    res.send(`<h1>✅ Success! UTR ${utr} Approved for User ${payment.email} (${payment.plan}). Account is now ACTIVE!</h1>`);
+});
+
 
 // User-Isolated WhatsApp Engines Store: userId -> WhatsAppEngine instance
 const userEngines = new Map();
@@ -130,6 +193,39 @@ io.on('connection', (socket) => {
     // Send User Quota Info & Account State on Connect
     const userQuota = getUserQuotaRecord(uid, email);
     socket.emit('user_quota_info', userQuota);
+
+    // Socket Listener for UTR Payment Submissions
+    socket.on('submit_utr_payment', (utrPayload) => {
+        console.log(`[Payment UTR Submitted] User: ${utrPayload.email} | Plan: ${utrPayload.plan} | UTR: ${utrPayload.utrNumber}`);
+        const payData = loadPendingPayments();
+        payData.payments.push({
+            uid: utrPayload.uid || uid,
+            email: utrPayload.email || email,
+            plan: utrPayload.plan,
+            duration: utrPayload.duration,
+            price: utrPayload.price,
+            utrNumber: utrPayload.utrNumber,
+            status: 'PENDING',
+            submittedAt: new Date().toISOString()
+        });
+        savePendingPayments(payData);
+
+        // Send Instant WhatsApp Notification Alert to Admin
+        try {
+            const adminMsg = `🚨 *NEW PAYMENT UTR RECEIVED* 🚨\n\n👤 *User Email:* ${utrPayload.email}\n📦 *Plan:* ${utrPayload.plan} (${utrPayload.duration})\n💰 *Amount:* ${utrPayload.price}\n🔢 *UTR Number:* ${utrPayload.utrNumber}\n\n👉 *Click to Approve Plan:* http://16.16.160.123:3000/api/admin/approve-utr?utr=${utrPayload.utrNumber}&secret=admin123`;
+            
+            // Try sending via active engine accounts
+            const activeAccs = waEngine.getActiveAccounts();
+            if (activeAccs.length > 0) {
+                const accId = activeAccs[0].id;
+                waEngine.sendMessage(accId, '917340216019@c.us', adminMsg);
+            }
+        } catch (e) {
+            console.error('Error sending WhatsApp admin alert:', e.message);
+        }
+    });
+
+
 
     // Broadcast Accounts Update to specific User Socket
     waEngine.setOnAccountsUpdate((accounts) => {

@@ -197,19 +197,36 @@ function initUserSocket(user) {
 
     socket.on('user_quota_info', (quota) => {
         if (quota) {
+    let currentUserQuota = null;
+
+    socket.on('user_quota_info', (quota) => {
+        currentUserQuota = quota;
+        if (quota) {
             const used = quota.dailySentToday || 0;
-            const max = quota.plan === 'PRO' ? '∞' : (quota.dailyMaxQuota || 50);
+            const isPaid = quota.plan && quota.plan !== 'FREE' && quota.plan !== 'FREE_EXPIRED';
+            const max = isPaid ? '∞' : (quota.dailyMaxQuota || 50);
             
             if (quotaUsedMsgs) quotaUsedMsgs.textContent = used;
             if (quotaMaxMsgs) quotaMaxMsgs.textContent = max;
 
-            if (quota.plan === 'PRO') {
+            if (quota.plan === 'FREE_EXPIRED') {
                 if (userPlanBadge) {
-                    userPlanBadge.textContent = 'PRO Plan';
+                    userPlanBadge.textContent = '⚠️ 7-Day Trial Expired';
+                    userPlanBadge.className = 'user-plan-tag free';
+                    userPlanBadge.style.background = 'rgba(239, 68, 68, 0.2)';
+                    userPlanBadge.style.color = 'var(--danger)';
+                }
+                if (sidebarPlanBadge) {
+                    sidebarPlanBadge.textContent = 'Trial Expired';
+                    sidebarPlanBadge.style.color = 'var(--danger)';
+                }
+            } else if (isPaid) {
+                if (userPlanBadge) {
+                    userPlanBadge.textContent = `${quota.plan} Active`;
                     userPlanBadge.className = 'user-plan-tag pro';
                 }
                 if (sidebarPlanBadge) {
-                    sidebarPlanBadge.textContent = 'PRO Plan';
+                    sidebarPlanBadge.textContent = `${quota.plan} Active`;
                     sidebarPlanBadge.style.color = 'var(--primary)';
                 }
             } else {
@@ -224,6 +241,7 @@ function initUserSocket(user) {
             }
         }
     });
+
 
     socket.on('campaign_progress', (data) => {
         const { sent, pending, failed } = data;
@@ -423,7 +441,17 @@ if (selectRoutingMode) {
 }
 
 // MEDIA HANDLERS
-if (btnPickMedia) btnPickMedia.addEventListener('click', () => mediaFileInput.click());
+if (btnPickMedia) {
+    btnPickMedia.addEventListener('click', () => {
+        if (!currentUserQuota || !currentUserQuota.plan || currentUserQuota.plan === 'FREE' || currentUserQuota.plan === 'FREE_EXPIRED') {
+            alert('📷 Media Attachment (Images, Videos, PDFs) is a PRO Feature!\nPlease Upgrade to Starter, Basic or Business Plan to send media.');
+            openPricingModal();
+            return;
+        }
+        mediaFileInput.click();
+    });
+}
+
 
 if (mediaFileInput) {
     mediaFileInput.addEventListener('change', (e) => {
@@ -724,3 +752,105 @@ if (btnClearTerminal) {
         if (terminalLogs) terminalLogs.innerHTML = '<div class="log-entry info"><span class="log-time">[System]</span> Terminal logs cleared.</div>';
     });
 }
+
+// SAAS PRICING & UTR PAYMENT MODAL HELPERS
+let currentSelectedPlan = 'Starter';
+let currentSelectedPrice = '₹299';
+let currentSelectedDuration = '1M';
+
+const PRICING_MATRIX = {
+    '1M': { starter: '₹299', basic: '₹999', business: '₹2,999', durLabel: '/ month' },
+    '3M': { starter: '₹799', basic: '₹2,699', business: '₹7,999', durLabel: '/ 3 months' },
+    '6M': { starter: '₹1,499', basic: '₹4,999', business: '₹14,999', durLabel: '/ 6 months' }
+};
+
+function openPricingModal() {
+    const modal = document.getElementById('saas-pricing-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closePricingModal() {
+    const modal = document.getElementById('saas-pricing-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function switchDuration(dur) {
+    currentSelectedDuration = dur;
+    document.querySelectorAll('.duration-btn').forEach(btn => {
+        if (btn.getAttribute('data-duration') === dur) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    const rates = PRICING_MATRIX[dur];
+    if (rates) {
+        document.getElementById('price-starter').innerText = rates.starter;
+        document.getElementById('dur-starter').innerText = rates.durLabel;
+
+        document.getElementById('price-basic').innerText = rates.basic;
+        document.getElementById('dur-basic').innerText = rates.durLabel;
+
+        document.getElementById('price-business').innerText = rates.business;
+        document.getElementById('dur-business').innerText = rates.durLabel;
+    }
+}
+
+function openPaymentModal(planName, priceElemId, durElemId) {
+    currentSelectedPlan = planName;
+    const priceVal = document.getElementById(priceElemId) ? document.getElementById(priceElemId).innerText : '₹299';
+    const durVal = document.getElementById(durElemId) ? document.getElementById(durElemId).innerText : '/ month';
+    currentSelectedPrice = `${priceVal} ${durVal}`;
+
+    document.getElementById('modal-selected-plan').innerText = `${planName} (${currentSelectedDuration})`;
+    document.getElementById('modal-selected-price').innerText = currentSelectedPrice;
+
+    closePricingModal();
+    const upiModal = document.getElementById('upi-payment-modal');
+    if (upiModal) upiModal.classList.remove('hidden');
+}
+
+function closePaymentModal() {
+    const upiModal = document.getElementById('upi-payment-modal');
+    if (upiModal) upiModal.classList.add('hidden');
+}
+
+// UTR SUBMISSION LISTENER
+const btnSubmitUtr = document.getElementById('btn-submit-utr');
+const utrInputField = document.getElementById('utr-input-field');
+
+if (btnSubmitUtr) {
+    btnSubmitUtr.addEventListener('click', () => {
+        const utrVal = utrInputField ? utrInputField.value.trim() : '';
+        if (!utrVal || utrVal.length < 8) {
+            alert('Please enter a valid 12-digit UTR / Transaction Reference Number!');
+            return;
+        }
+
+        if (!socket || !currentUser) {
+            alert('Server disconnected or user not logged in!');
+            return;
+        }
+
+        btnSubmitUtr.disabled = true;
+        btnSubmitUtr.innerText = 'Submitting Payment...';
+
+        socket.emit('submit_utr_payment', {
+            uid: currentUser.uid,
+            email: currentUser.email,
+            plan: currentSelectedPlan,
+            duration: currentSelectedDuration,
+            price: currentSelectedPrice,
+            utrNumber: utrVal
+        });
+
+        setTimeout(() => {
+            btnSubmitUtr.disabled = false;
+            btnSubmitUtr.innerHTML = '<i class="fa-solid fa-shield-check"></i> Submit Payment for Instant Activation';
+            closePaymentModal();
+            alert(`✅ Payment Details & UTR (${utrVal}) Submitted Successfully!\nYour plan will be activated after 1-click verification.`);
+        }, 1200);
+    });
+}
+
