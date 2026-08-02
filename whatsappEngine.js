@@ -1,7 +1,12 @@
 /**
- * whatsappEngine.js - Ultra-Fast Reliable WhatsApp Engine with Native Baileys WebSockets
- * Features: Single Socket Instance per Slot (0 Key Mismatch), Instant QR & 8-Digit Pairing Code
+ * whatsappEngine.js - Ultra-Fast Native WebSocket Engine using Baileys
+ * Restored Clean Working QR Engine Version
  */
+
+const { webcrypto } = require('crypto');
+if (!globalThis.crypto) {
+    globalThis.crypto = webcrypto;
+}
 
 const {
     default: makeWASocket,
@@ -16,14 +21,13 @@ const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
 
-// Dummy logger to silence pino verbose logs
 const pino = require('pino');
 const logger = pino({ level: 'silent' });
 
 class WhatsAppEngine {
     constructor() {
         this.maxAccounts = 10;
-        this.accounts = new Map(); // accId -> { id, sock, status, qrCodeDataUrl, pairingCode, userInfo }
+        this.accounts = new Map();
         this.autoReplyRules = [];
         this.onAccountsUpdate = null;
         this.onAutoReplyLog = null;
@@ -47,20 +51,16 @@ class WhatsAppEngine {
                 await this.createAccountInstance(accId);
             }
         } else {
-            // Default Account Slot 1
             await this.createAccountInstance('acc_1');
         }
     }
 
     async createAccountInstance(accId) {
         if (this.accounts.has(accId)) {
-            const existing = this.accounts.get(accId);
-            if (existing.status === 'CONNECTED' || (existing.sock && existing.sock.ws && existing.sock.ws.readyState === 1)) {
-                return existing;
-            }
+            return this.accounts.get(accId);
         }
 
-        if (this.accounts.size >= this.maxAccounts && !this.accounts.has(accId)) {
+        if (this.accounts.size >= this.maxAccounts) {
             throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
         }
 
@@ -93,7 +93,7 @@ class WhatsAppEngine {
                     creds: state.creds,
                     keys: makeCacheableSignalKeyStore(state.keys, logger),
                 },
-                browser: ['Ubuntu', 'Chrome', '120.0.0.0'],
+                browser: ['AutoWhatsApp Pro', 'Chrome', '1.0.0'],
                 generateHighQualityLinkPreview: true,
                 markOnlineOnConnect: true,
                 syncFullHistory: false
@@ -152,7 +152,7 @@ class WhatsAppEngine {
                     if (shouldReconnect && accData.status !== 'CONNECTED') {
                         accData.status = 'INITIALIZING';
                         this.broadcastState();
-                        await delay(3000);
+                        await delay(2000);
                         if (this.accounts.has(accId) && this.accounts.get(accId).status !== 'CONNECTED') {
                             await this.createAccountInstance(accId);
                         }
@@ -167,7 +167,7 @@ class WhatsAppEngine {
                 }
             });
 
-            // Incoming Messages Listener for Auto-Responders
+            // Message Upsert Listener for Auto-Responders
             sock.ev.on('messages.upsert', async (m) => {
                 if (m.type !== 'notify') return;
 
@@ -228,9 +228,6 @@ class WhatsAppEngine {
         return accData;
     }
 
-    /**
-     * Bulletproof 8-Digit Pairing Code Request on Active Socket Instance
-     */
     async requestPairingCode(accId, phoneNumber) {
         const accData = this.accounts.get(accId);
         if (!accData || !accData.sock) {
@@ -242,40 +239,12 @@ class WhatsAppEngine {
             throw new Error('Please enter a valid 10 to 12 digit phone number (e.g. 917340216019)');
         }
 
-        const raw10 = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
-        for (const [existingId, existingAcc] of this.accounts) {
-            if (existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid) {
-                const existingWid = String(existingAcc.userInfo.wid).replace(/\D/g, '');
-                if (existingWid.endsWith(raw10)) {
-                    throw new Error(`Account Already Registered! (+${existingWid})`);
-                }
-            }
-        }
-
-        console.log(`[Baileys Engine] Requesting pairing code for ${accId} with phone: ${cleanPhone}...`);
-
-        // Wait briefly for WebSocket readiness
-        let attempts = 0;
-        while (attempts < 10) {
-            if (accData.sock && accData.sock.ws && accData.sock.ws.readyState === 1) {
-                break;
-            }
-            await delay(500);
-            attempts++;
-        }
-
-        try {
-            const code = await accData.sock.requestPairingCode(cleanPhone);
-            const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
-            accData.pairingCode = formattedCode;
-            accData.status = 'PAIRING_CODE_READY';
-            console.log(`[Baileys Engine] 🔑 Official Pairing Code for ${accId}: ${formattedCode}`);
-            this.broadcastState();
-            return formattedCode;
-        } catch (err) {
-            console.error(`[Baileys Engine] Pairing code error for ${accId}:`, err.message);
-            throw new Error(`Failed to request pairing code: ${err.message || 'WhatsApp server busy'}`);
-        }
+        const code = await accData.sock.requestPairingCode(cleanPhone);
+        const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
+        accData.pairingCode = formattedCode;
+        accData.status = 'PAIRING_CODE_READY';
+        this.broadcastState();
+        return formattedCode;
     }
 
     async addAccountSlot() {
