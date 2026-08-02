@@ -1,6 +1,6 @@
 /**
  * whatsappEngine.js - Ultra-Fast Reliable WhatsApp Engine with Native Baileys WebSockets
- * Features: Auto WebSocket Handshake Wait, Pairing Code Auto-Retry, Persistent QR Cache
+ * Features: Independent Pairing Socket Flow, Persistent Session Auth, 0% Touch to Connected Accounts
  */
 
 const {
@@ -52,10 +52,21 @@ class WhatsAppEngine {
         }
     }
 
-    async createAccountInstance(accId) {
-        if (this.accounts.has(accId)) return this.accounts.get(accId);
-        if (this.accounts.size >= this.maxAccounts) {
+    async createAccountInstance(accId, isPairingMode = false) {
+        if (this.accounts.has(accId) && !isPairingMode) return this.accounts.get(accId);
+        if (this.accounts.size >= this.maxAccounts && !this.accounts.has(accId)) {
             throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
+        }
+
+        // If recreating for pairing code, cleanly close existing socket
+        if (isPairingMode && this.accounts.has(accId)) {
+            const oldAcc = this.accounts.get(accId);
+            if (oldAcc && oldAcc.sock) {
+                try {
+                    oldAcc.sock.ev.removeAllListeners();
+                    oldAcc.sock.end();
+                } catch (e) {}
+            }
         }
 
         const sessionPath = path.join(__dirname, '.baileys_auth', `session-${accId}`);
@@ -100,12 +111,12 @@ class WhatsAppEngine {
             sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
 
-                if (qr) {
+                if (qr && !isPairingMode) {
                     try {
                         const qrDataUrl = await QRCode.toDataURL(qr);
                         accData.qrCodeDataUrl = qrDataUrl;
                         accData.status = 'QR_READY';
-                        console.log(`[Baileys Engine] 📸 Persistent QR Code Ready for ${accId}`);
+                        console.log(`[Baileys Engine] 📸 QR Code Ready for ${accId}`);
                         this.broadcastState();
                     } catch (err) {
                         console.error(`[Baileys Engine] Error generating QR for ${accId}:`, err);
@@ -143,14 +154,14 @@ class WhatsAppEngine {
                     const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                     console.log(`[Baileys Engine] ${accId} Connection closed (StatusCode: ${statusCode}). Reconnecting: ${shouldReconnect}`);
 
-                    if (shouldReconnect) {
-                        // Maintain persistent QR / status during brief reconnects
-                        accData.status = accData.qrCodeDataUrl ? 'QR_READY' : 'INITIALIZING';
+                    if (shouldReconnect && accData.status !== 'CONNECTED') {
+                        accData.status = 'INITIALIZING';
                         this.broadcastState();
                         await delay(2000);
-                        this.accounts.delete(accId);
-                        await this.createAccountInstance(accId);
-                    } else {
+                        if (this.accounts.has(accId) && this.accounts.get(accId).status !== 'CONNECTED') {
+                            await this.createAccountInstance(accId);
+                        }
+                    } else if (!shouldReconnect) {
                         console.log(`[Baileys Engine] ${accId} Logged out cleanly.`);
                         accData.status = 'DISCONNECTED';
                         accData.userInfo = null;
@@ -223,20 +234,14 @@ class WhatsAppEngine {
     }
 
     /**
-     * Bulletproof 8-Digit Phone Pairing Code Request with Auto-Handshake Wait & Auto-Retry
+     * Bulletproof Instant 8-Digit Phone Pairing Code Generation
      */
     async requestPairingCode(accId, phoneNumber) {
-        const accData = this.accounts.get(accId);
-        if (!accData || !accData.sock) {
-            throw new Error(`Account slot ${accId} is not initialized!`);
-        }
-
         let cleanPhone = String(phoneNumber).replace(/\D/g, '');
         if (!cleanPhone || cleanPhone.length < 10) {
             throw new Error('Please enter a valid 10 to 12 digit phone number (e.g. 917340216019)');
         }
 
-        // Check if phone number is ALREADY connected on another slot
         const raw10 = cleanPhone.length > 10 ? cleanPhone.slice(-10) : cleanPhone;
         for (const [existingId, existingAcc] of this.accounts) {
             if (existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid) {
@@ -247,43 +252,29 @@ class WhatsAppEngine {
             }
         }
 
-        console.log(`[Baileys Engine] Requesting bulletproof pairing code for ${accId} with phone: ${cleanPhone}...`);
+        console.log(`[Baileys Engine] Requesting instant 8-digit pairing code for ${accId} with phone: ${cleanPhone}...`);
 
-        // Wait up to 10 seconds for WebSocket connection handshake to stabilize
-        let waitAttempts = 0;
-        while (waitAttempts < 10) {
-            if (accData.sock && accData.sock.ws && accData.sock.ws.readyState === 1) {
-                break;
-            }
-            await delay(500);
-            waitAttempts++;
+        // Re-initialize dedicated pairing socket for clean pairing stanza
+        await this.createAccountInstance(accId, true);
+        await delay(1000);
+
+        const accData = this.accounts.get(accId);
+        if (!accData || !accData.sock) {
+            throw new Error(`Failed to initialize pairing socket for ${accId}`);
         }
 
-        // Execute Pairing Code with 3-Attempt Auto-Retry Loop
-        let code = null;
-        let lastErr = null;
-
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                code = await accData.sock.requestPairingCode(cleanPhone);
-                if (code) break;
-            } catch (err) {
-                lastErr = err;
-                console.log(`[Baileys Engine] Pairing code attempt ${attempt} warning: ${err.message}. Retrying in 2s...`);
-                await delay(2000);
-            }
+        try {
+            const code = await accData.sock.requestPairingCode(cleanPhone);
+            const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
+            accData.pairingCode = formattedCode;
+            accData.status = 'PAIRING_CODE_READY';
+            console.log(`[Baileys Engine] 🔑 Instant Pairing Code for ${accId}: ${formattedCode}`);
+            this.broadcastState();
+            return formattedCode;
+        } catch (err) {
+            console.error(`[Baileys Engine] Error requesting pairing code for ${accId}:`, err.message);
+            throw new Error(`Failed to request pairing code: ${err.message || 'WhatsApp server busy'}`);
         }
-
-        if (!code) {
-            throw new Error(lastErr ? lastErr.message : 'WhatsApp server temporary busy. Please click Get Code again.');
-        }
-
-        const formattedCode = code?.match(/.{1,4}/g)?.join('-') || code;
-        accData.pairingCode = formattedCode;
-        accData.status = 'PAIRING_CODE_READY';
-        console.log(`[Baileys Engine] 🔑 Bulletproof Pairing Code for ${accId}: ${formattedCode}`);
-        this.broadcastState();
-        return formattedCode;
     }
 
     async addAccountSlot() {
