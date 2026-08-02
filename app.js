@@ -1,6 +1,6 @@
 /**
  * AutoWhatsApp Pro - Official Mobile & Web Frontend Logic
- * Direct 0-Click Pure QR Engine Version
+ * Direct 0-Click Pure QR Engine Version + Dynamic Excel Data Preview Table
  */
 
 const RENDER_CLOUD_URL = 'http://16.16.160.123:3000';
@@ -170,9 +170,9 @@ function renderAccounts(accounts) {
                     <div class="qr-container-box" id="qr-container-${acc.id}" style="margin-top:12px; text-align:center;">
                         ${isQrReady ? `
                             <div class="qr-box-center" style="display:inline-block; background:#ffffff; padding:12px; border-radius:12px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                                <img src="${acc.qrCode}" alt="Scan QR Code" style="width:220px; height:220px; display:block;">
+                                <img src="${acc.qrCode}" alt="Scan QR Code" style="width:200px; height:200px; display:block;">
                             </div>
-                            <div class="qr-instruction" style="margin-top:10px; font-size:12px; color:var(--primary); font-weight:600;">
+                            <div class="qr-instruction" style="margin-top:8px; font-size:11px; color:var(--primary); font-weight:600;">
                                 <i class="fa-solid fa-qrcode"></i> Open WhatsApp ➔ Linked Devices ➔ Scan this QR Code
                             </div>
                         ` : `
@@ -274,28 +274,34 @@ btnClearMedia.addEventListener('click', () => {
     btnClearMedia.classList.add('hidden');
 });
 
-// EXCEL PARSER
-excelDropzone.addEventListener('click', () => excelFileInput.click());
+// EXCEL PARSER & DYNAMIC DATA PREVIEW TABLE
+if (excelDropzone) {
+    excelDropzone.addEventListener('click', (e) => {
+        if (!e.target.closest('button') && !e.target.closest('table')) {
+            excelFileInput.click();
+        }
+    });
+
+    excelDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        excelDropzone.classList.add('active');
+    });
+
+    excelDropzone.addEventListener('dragleave', () => {
+        excelDropzone.classList.remove('active');
+    });
+
+    excelDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        excelDropzone.classList.remove('active');
+        if (e.dataTransfer.files.length > 0) {
+            excelFileInput.files = e.dataTransfer.files;
+            handleExcelUpload();
+        }
+    });
+}
 
 excelFileInput.addEventListener('change', handleExcelUpload);
-
-excelDropzone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    excelDropzone.classList.add('active');
-});
-
-excelDropzone.addEventListener('dragleave', () => {
-    excelDropzone.classList.remove('active');
-});
-
-excelDropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    excelDropzone.classList.remove('active');
-    if (e.dataTransfer.files.length > 0) {
-        excelFileInput.files = e.dataTransfer.files;
-        handleExcelUpload();
-    }
-});
 
 function handleExcelUpload() {
     const file = excelFileInput.files[0];
@@ -351,6 +357,46 @@ function handleExcelUpload() {
             excelFileStatus.innerHTML = `
                 <div style="color:var(--success); font-weight:600;">
                     <i class="fa-solid fa-file-csv"></i> Loaded ${parsedContacts.length} valid contacts from ${file.name}
+                </div>
+            `;
+
+            // DYNAMIC EXCEL DATA PREVIEW TABLE RENDER
+            let tableRowsHtml = '';
+            parsedContacts.slice(0, 10).forEach((c, idx) => {
+                tableRowsHtml += `
+                    <tr>
+                        <td>${idx + 1}</td>
+                        <td><strong>${c.name}</strong></td>
+                        <td>+${c.phone}</td>
+                    </tr>
+                `;
+            });
+
+            excelDropzone.innerHTML = `
+                <div style="text-align:left; width:100%; cursor:default;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-size:13px; font-weight:700; color:var(--success);">
+                            <i class="fa-solid fa-file-csv"></i> ${file.name} (${parsedContacts.length} Contacts)
+                        </span>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('excel-file-input').click()">
+                            <i class="fa-solid fa-rotate"></i> Change File
+                        </button>
+                    </div>
+                    <div style="max-height:200px; overflow-y:auto; border:1px solid var(--card-border); border-radius:8px;">
+                        <table class="speed-table-matrix" style="font-size:11px;">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Name</th>
+                                    <th>Phone Number</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                    ${parsedContacts.length > 10 ? `<div style="font-size:10px; color:var(--text-muted); margin-top:6px; text-align:center;">Showing first 10 of ${parsedContacts.length} loaded contacts...</div>` : ''}
                 </div>
             `;
 
