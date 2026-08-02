@@ -79,9 +79,30 @@ const SPEED_CAPS = {
     6: 350, 7: 400, 8: 450, 9: 500, 10: 600
 };
 
+// LANDING & AUTH MODAL HELPERS
+function openAuthModal(mode = 'login') {
+    const modal = document.getElementById('saas-auth-overlay');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeAuthModal() {
+    const modal = document.getElementById('saas-auth-overlay');
+    if (modal) modal.classList.add('hidden');
+}
+
+function scrollToPricingSection() {
+    const landingSec = document.getElementById('pricing-sec');
+    if (landingSec && !document.getElementById('saas-landing-page').classList.contains('hidden')) {
+        landingSec.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        openPricingModal();
+    }
+}
+
 // FIREBASE AUTH STATE LISTENER
 if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().onAuthStateChanged((user) => {
+        const saasLandingPage = document.getElementById('saas-landing-page');
         if (user) {
             currentUser = user;
             console.log('Firebase User Authenticated:', user.email || user.uid);
@@ -97,6 +118,7 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             if (sidebarUserEmail) sidebarUserEmail.textContent = user.email || user.uid;
             if (sidebarUserAvatar) sidebarUserAvatar.src = avatarUrl;
 
+            if (saasLandingPage) saasLandingPage.classList.add('hidden');
             if (saasAuthOverlay) saasAuthOverlay.classList.add('hidden');
             if (mainAppContainer) mainAppContainer.classList.remove('hidden');
 
@@ -105,7 +127,8 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
 
         } else {
             currentUser = null;
-            if (saasAuthOverlay) saasAuthOverlay.classList.remove('hidden');
+            if (saasLandingPage) saasLandingPage.classList.remove('hidden');
+            if (saasAuthOverlay) saasAuthOverlay.classList.add('hidden');
             if (mainAppContainer) mainAppContainer.classList.add('hidden');
             if (socket) {
                 socket.disconnect();
@@ -114,13 +137,19 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
     });
 }
 
-// GOOGLE SIGN IN
+// GOOGLE SIGN IN (WITH POPUP & FALLBACK)
 if (btnGoogleLogin) {
     btnGoogleLogin.addEventListener('click', () => {
         const provider = new firebase.auth.GoogleAuthProvider();
         firebase.auth().signInWithPopup(provider).catch(err => {
-            console.error('Google Sign-In Error:', err);
-            alert('Google Sign-In failed: ' + err.message);
+            console.error('Google Sign-In Popup Error:', err);
+            if (err.code === 'auth/popup-blocked' || err.code === 'auth/unauthorized-domain') {
+                firebase.auth().signInWithRedirect(provider).catch(rErr => {
+                    alert('Google Sign-In Error: ' + rErr.message + '\nPlease use Email Sign-In below.');
+                });
+            } else {
+                alert('Google Sign-In Note: ' + err.message + '\nTip: You can also use Email & Password below to sign in instantly!');
+            }
         });
     });
 }
@@ -139,6 +168,7 @@ if (btnEmailLogin) {
         });
     });
 }
+
 
 if (btnEmailSignup) {
     btnEmailSignup.addEventListener('click', () => {
