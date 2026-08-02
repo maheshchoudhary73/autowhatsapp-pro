@@ -3,6 +3,11 @@
  * Zero Chrome Dependency, Instant 1-Second QR Code & 8-Digit Pairing Code
  */
 
+const { webcrypto } = require('crypto');
+if (!globalThis.crypto) {
+    globalThis.crypto = webcrypto;
+}
+
 const {
     default: makeWASocket,
     useMultiFileAuthState,

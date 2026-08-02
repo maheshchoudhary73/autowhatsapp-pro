@@ -295,8 +295,12 @@ function renderAccountsUI(accounts) {
         `;
     });
 
-    // Save existing input values before re-render
+    // Save existing input values and active focus state before re-render
     const existingInputValues = {};
+    const activeElId = document.activeElement ? document.activeElement.id : null;
+    const activeSelStart = (document.activeElement && typeof document.activeElement.selectionStart === 'number') ? document.activeElement.selectionStart : null;
+    const activeSelEnd = (document.activeElement && typeof document.activeElement.selectionEnd === 'number') ? document.activeElement.selectionEnd : null;
+
     accounts.forEach(acc => {
         const el = document.getElementById(`phone-input-${acc.id}`);
         if (el) existingInputValues[acc.id] = el.value;
@@ -304,13 +308,23 @@ function renderAccountsUI(accounts) {
 
     accountsGrid.innerHTML = html;
 
-    // Restore existing input values after re-render
+    // Restore existing input values and active focus state after re-render
     accounts.forEach(acc => {
         const el = document.getElementById(`phone-input-${acc.id}`);
         if (el && existingInputValues[acc.id] !== undefined) {
             el.value = existingInputValues[acc.id];
         }
     });
+
+    if (activeElId) {
+        const restoredEl = document.getElementById(activeElId);
+        if (restoredEl && typeof restoredEl.focus === 'function') {
+            restoredEl.focus();
+            if (activeSelStart !== null && activeSelEnd !== null && typeof restoredEl.setSelectionRange === 'function') {
+                try { restoredEl.setSelectionRange(activeSelStart, activeSelEnd); } catch (e) {}
+            }
+        }
+    }
 
     selectSpecificAcc.innerHTML = specificOptionsHtml || '<option value="">No Accounts Connected</option>';
     ratioInputsGrid.innerHTML = ratioInputsHtml || '<p style="font-size:11px; color:var(--text-muted);">Connect WhatsApp accounts to set custom quotas.</p>';
