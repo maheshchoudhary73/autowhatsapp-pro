@@ -334,6 +334,12 @@ function initUserSocket(user) {
         }
     });
 
+                    sidebarPlanBadge.style.color = 'var(--accent)';
+                }
+            }
+        }
+    });
+
 
     socket.on('campaign_progress', (data) => {
         const { sent, pending, failed } = data;
@@ -536,13 +542,13 @@ if (selectRoutingMode) {
 if (btnPickMedia) {
     btnPickMedia.addEventListener('click', () => {
         if (!currentUserQuota || !currentUserQuota.plan || currentUserQuota.plan === 'FREE' || currentUserQuota.plan === 'FREE_EXPIRED') {
-            alert('📷 Media Attachment (Images, Videos, PDFs) is a PRO Feature!\nPlease Upgrade to Starter, Basic or Business Plan to send media.');
-            openPricingModal();
+            if (window.openPricingModal) window.openPricingModal();
             return;
         }
         mediaFileInput.click();
     });
 }
+
 
 
 if (mediaFileInput) {
