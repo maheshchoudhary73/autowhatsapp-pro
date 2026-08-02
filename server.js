@@ -381,9 +381,18 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Event: Add New WhatsApp Account Slot
+    // Event: Add New WhatsApp Account Slot with Strict SaaS Plan Limits Check
     socket.on('add_account', async () => {
         try {
+            const userQuota = getUserQuotaRecord(uid, email);
+            const currentAccCount = waEngine.getAccountsState().length;
+            if (currentAccCount >= userQuota.maxAccs) {
+                socket.emit('plan_limit_exceeded', {
+                    type: 'MAX_ACCOUNT_LIMIT',
+                    message: `⚠️ Your ${userQuota.plan} Plan permits a maximum of ${userQuota.maxAccs} WhatsApp Account(s)!\n\nPlease Upgrade your plan to add more accounts.`
+                });
+                return;
+            }
             await waEngine.addNewAccount();
             socket.emit('accounts_update', waEngine.getAccountsState());
         } catch (err) {
@@ -410,14 +419,32 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Event: Start Campaign with Free Trial 50 SMS Limit Check
+    // Event: Start Campaign with Daily Limit & Free Expiry Check
     socket.on('start_campaign', (payload) => {
-        const connectedAccounts = waEngine.getConnectedAccountIds();
+        const userQuota = getUserQuotaRecord(uid, email);
+        if (userQuota.plan === 'FREE_EXPIRED') {
+            socket.emit('plan_limit_exceeded', {
+                type: 'TRIAL_EXPIRED',
+                message: '⚠️ Your Free 7-Day Trial has Expired!\n\nPlease Upgrade to a PRO Plan to continue sending campaigns.'
+            });
+            return;
+        }
 
+        const remainingQuota = userQuota.dailyMaxQuota - (userQuota.dailySentToday || 0);
+        if (remainingQuota <= 0) {
+            socket.emit('plan_limit_exceeded', {
+                type: 'DAILY_QUOTA_EXCEEDED',
+                message: `⚠️ Daily limit reached (${userQuota.dailySentToday}/${userQuota.dailyMaxQuota} msgs today) for your ${userQuota.plan} Plan!\n\nPlease Upgrade your plan to send more messages today.`
+            });
+            return;
+        }
+
+        const connectedAccounts = waEngine.getConnectedAccountIds();
         if (connectedAccounts.length === 0) {
             socket.emit('error_alert', { message: 'No WhatsApp account is connected! Please scan QR code first.' });
             return;
         }
+
 
         const contacts = payload.contacts || [];
         if (!contacts || contacts.length === 0) {

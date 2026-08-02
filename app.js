@@ -277,17 +277,29 @@ function initUserSocket(user) {
         renderAccounts(accounts);
     });
 
-    let currentUserQuota = null;
+    socket.on('plan_limit_exceeded', (info) => {
+        alert(info.message || 'Plan limit exceeded!');
+        if (window.openPricingModal) {
+            window.openPricingModal();
+        }
+    });
 
     socket.on('user_quota_info', (quota) => {
         currentUserQuota = quota;
         if (quota) {
             const used = quota.dailySentToday || 0;
+            const max = quota.dailyMaxQuota || 50;
+            const remaining = Math.max(0, max - used);
+            const planName = quota.plan || 'Free Trial';
             const isPaid = quota.plan && quota.plan !== 'FREE' && quota.plan !== 'FREE_EXPIRED';
-            const max = isPaid ? '∞' : (quota.dailyMaxQuota || 50);
             
             if (quotaUsedMsgs) quotaUsedMsgs.textContent = used;
             if (quotaMaxMsgs) quotaMaxMsgs.textContent = max;
+
+            const quotaStatusEl = document.getElementById('sidebar-quota-status');
+            if (quotaStatusEl) {
+                quotaStatusEl.innerHTML = `📊 Daily Usage: <strong>${used} / ${max}</strong> msgs today<br><span style="color:var(--accent); font-size:11px;">(${remaining} msgs remaining)</span>`;
+            }
 
             if (quota.plan === 'FREE_EXPIRED') {
                 if (userPlanBadge) {
@@ -302,20 +314,26 @@ function initUserSocket(user) {
                 }
             } else if (isPaid) {
                 if (userPlanBadge) {
-                    userPlanBadge.textContent = `${quota.plan} Active`;
+                    userPlanBadge.textContent = `${planName} Active`;
                     userPlanBadge.className = 'user-plan-tag pro';
                 }
                 if (sidebarPlanBadge) {
-                    sidebarPlanBadge.textContent = `${quota.plan} Active`;
+                    sidebarPlanBadge.textContent = `${planName} Active`;
                     sidebarPlanBadge.style.color = 'var(--primary)';
                 }
             } else {
                 if (userPlanBadge) {
-                    userPlanBadge.textContent = `Free Trial: ${Math.max(0, 50 - used)} msgs left today`;
+                    userPlanBadge.textContent = `Free Trial: ${remaining} msgs left today`;
                     userPlanBadge.className = 'user-plan-tag free';
                 }
                 if (sidebarPlanBadge) {
                     sidebarPlanBadge.textContent = 'Free Trial';
+                    sidebarPlanBadge.style.color = 'var(--accent)';
+                }
+            }
+        }
+    });
+
                     sidebarPlanBadge.style.color = 'var(--accent)';
                 }
             }
