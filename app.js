@@ -282,15 +282,19 @@ function initUserSocket(user) {
         }
     });
 
+    let hasLogConnected = false;
     socket.on('connect', () => {
-        console.log('Isolated SaaS Socket Connected:', socket.id);
-        appendTerminalLog({
-            type: 'success',
-            timestamp: new Date().toLocaleTimeString(),
-            text: `⚡ Authenticated SaaS Cloud Connection [UID: ${user.uid.slice(0, 6)}...]`
-        });
-        socket.emit('request_qr', { accId: 'acc_1' });
+        if (!hasLogConnected) {
+            console.log('Isolated SaaS Socket Connected:', socket.id);
+            appendTerminalLog({
+                type: 'success',
+                timestamp: new Date().toLocaleTimeString(),
+                text: `⚡ Authenticated SaaS Cloud Connection [UID: ${user.uid.slice(0, 6)}...]`
+            });
+            hasLogConnected = true;
+        }
     });
+
 
     socket.on('accounts_update', (accounts) => {
         accountsState = accounts;

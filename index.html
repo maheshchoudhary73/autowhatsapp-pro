@@ -93,14 +93,21 @@
             if (rates) {
                 var ps = document.getElementById('price-starter'); if (ps) ps.innerText = rates.starter;
                 var ds = document.getElementById('dur-starter'); if (ds) ds.innerText = rates.durLabel;
+                var cps = document.getElementById('card-price-starter'); if (cps) cps.innerText = rates.starter;
+                var cds = document.getElementById('card-dur-starter'); if (cds) cds.innerText = rates.durLabel;
 
                 var pb = document.getElementById('price-basic'); if (pb) pb.innerText = rates.basic;
                 var db = document.getElementById('dur-basic'); if (db) db.innerText = rates.durLabel;
+                var cpb = document.getElementById('card-price-basic'); if (cpb) cpb.innerText = rates.basic;
+                var cdb = document.getElementById('card-dur-basic'); if (cdb) cdb.innerText = rates.durLabel;
 
                 var pbiz = document.getElementById('price-business'); if (pbiz) pbiz.innerText = rates.business;
                 var dbiz = document.getElementById('dur-business'); if (dbiz) dbiz.innerText = rates.durLabel;
+                var cpbiz = document.getElementById('card-price-business'); if (cpbiz) cpbiz.innerText = rates.business;
+                var cdbiz = document.getElementById('card-dur-business'); if (cdbiz) cdbiz.innerText = rates.durLabel;
             }
         };
+
 
         window.pendingSelectedPlan = null;
         window.pendingSelectedPriceId = null;
@@ -428,7 +435,6 @@
             </div>
 
             <div class="landing-nav-links">
-                <a href="#features-sec">Features</a>
                 <a href="#pricing-sec">Pricing Plans</a>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">
                     <i class="fa-solid fa-right-to-bracket"></i> Sign In
@@ -437,6 +443,7 @@
                     <i class="fa-solid fa-rocket"></i> Get Started Free
                 </button>
             </div>
+
         </nav>
 
         <!-- HERO BANNER SECTION -->
@@ -1080,27 +1087,85 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                     </div>
                 </div>
 
-                <!-- RIGHT GRID: USER PROFILE & SYSTEM STATUS -->
-                <div class="glass-card" style="height: 100%;">
-                    <div class="card-header flex-between">
+                <!-- RIGHT GRID: USER PROFILE & SAAS PRO PRICING PLANS -->
+                <div class="glass-card" style="padding:20px;">
+                    <div class="card-header flex-between" style="margin-bottom:16px;">
                         <h3><i class="fa-solid fa-user-gear"></i> User Profile & SaaS License</h3>
-                        <span class="file-badge" id="sidebar-plan-badge" onclick="scrollToPricingSection()" style="background:rgba(0, 242, 254, 0.15); color:var(--accent); cursor:pointer;" title="Click to Upgrade Plan">Free Trial</span>
+                        <span class="file-badge" id="sidebar-plan-badge" style="background:rgba(0, 242, 254, 0.15); color:var(--accent);" title="Your Active SaaS Plan">Free Trial</span>
                     </div>
 
-                    <div style="padding: 20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px;">
-                        <img src="https://ui-avatars.com/api/?name=User" id="sidebar-user-avatar" style="width:70px; height:70px; border-radius:50%; border:2px solid var(--accent);" alt="Profile">
-                        <div style="font-size:16px; font-weight:800; color:var(--text-main);" id="sidebar-user-name">Pro SaaS User</div>
-                        <div style="font-size:12px; color:var(--text-muted);" id="sidebar-user-email">user@example.com</div>
-                        <div style="font-size:12px; color:var(--success); font-weight:700; margin-top:2px;" id="sidebar-quota-status">
-                            📊 Daily Usage: <span id="quota-used-msgs">0</span> / <span id="quota-max-msgs">50</span> msgs today
+                    <!-- TOP: USER PROFILE & DAILY CREDIT USAGE -->
+                    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); padding:14px; border-radius:12px; display:flex; align-items:center; gap:16px; margin-bottom:18px;">
+                        <img src="https://ui-avatars.com/api/?name=User" id="sidebar-user-avatar" style="width:54px; height:54px; border-radius:50%; border:2px solid var(--accent);" alt="Profile">
+                        <div style="text-align:left; flex-grow:1;">
+                            <div style="font-size:15px; font-weight:800; color:var(--text-main);" id="sidebar-user-name">Pro SaaS User</div>
+                            <div style="font-size:11px; color:var(--text-muted);" id="sidebar-user-email">user@example.com</div>
+                            <div style="font-size:12px; color:var(--success); font-weight:700; margin-top:3px;" id="sidebar-quota-status">
+                                📊 Daily Usage: <span id="quota-used-msgs">0</span> / <span id="quota-max-msgs">50</span> msgs today
+                            </div>
                         </div>
-                        
-                        <button type="button" class="btn btn-primary full-btn" onclick="window.openPricingModal()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 14px rgba(245,158,11,0.4); margin-top:6px; font-weight:800;">
-                            <i class="fa-solid fa-crown"></i> Upgrade to PRO Plan
-                        </button>
+                    </div>
 
+                    <!-- BOTTOM: FULL 3-PLAN PRICING & BUY BUTTONS -->
+                    <div style="margin-top:10px;">
+                        <h4 style="font-size:14px; font-weight:800; color:var(--accent); margin-bottom:12px; text-align:left;">
+                            👑 Pro Subscription Plans (Choose & Buy Instantly)
+                        </h4>
+
+                        <!-- DURATION DYNAMIC SWITCHER -->
+                        <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:8px; margin-bottom:14px;">
+                            <button type="button" class="btn btn-secondary btn-sm duration-btn active" data-duration="1M" onclick="switchDuration('1M')">1 Month</button>
+                            <button type="button" class="btn btn-secondary btn-sm duration-btn" data-duration="3M" onclick="switchDuration('3M')">3 Months</button>
+                            <button type="button" class="btn btn-secondary btn-sm duration-btn" data-duration="6M" onclick="switchDuration('6M')">6 Months</button>
+                        </div>
+
+                        <!-- 3 PRICING CARDS IN INLINE GRID -->
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+                            
+                            <!-- STARTER -->
+                            <div style="background:rgba(0,242,254,0.04); border:1px solid rgba(0,242,254,0.3); padding:12px; border-radius:12px; text-align:left;">
+                                <div style="font-size:14px; font-weight:800; color:var(--text-main);">Starter Plan</div>
+                                <div style="font-size:10px; color:var(--text-muted);">2 WhatsApp Accounts</div>
+                                <div style="font-size:20px; font-weight:800; color:var(--accent); margin:6px 0;">
+                                    <span id="card-price-starter">₹299</span> <span style="font-size:10px; color:var(--text-muted);" id="card-dur-starter">/ month</span>
+                                </div>
+                                <div style="font-size:10px; color:var(--text-main); margin-bottom:8px;">⚡ Max 700 msgs/day</div>
+                                <button type="button" class="btn btn-primary full-btn btn-sm" onclick="openPaymentModal('Starter', 'card-price-starter', 'card-dur-starter')">
+                                    Subscribe Starter
+                                </button>
+                            </div>
+
+                            <!-- BASIC ⭐ -->
+                            <div style="background:rgba(37,211,102,0.06); border:2px solid var(--primary); padding:12px; border-radius:12px; text-align:left; position:relative;">
+                                <div style="position:absolute; top:-8px; right:8px; background:var(--primary); color:#000; font-size:8px; font-weight:800; padding:2px 6px; border-radius:6px;">⭐ POPULAR</div>
+                                <div style="font-size:14px; font-weight:800; color:var(--primary);">Basic Plan ⭐</div>
+                                <div style="font-size:10px; color:var(--text-muted);">5 WhatsApp Accounts</div>
+                                <div style="font-size:20px; font-weight:800; color:var(--primary); margin:6px 0;">
+                                    <span id="card-price-basic">₹999</span> <span style="font-size:10px; color:var(--text-muted);" id="card-dur-basic">/ month</span>
+                                </div>
+                                <div style="font-size:10px; color:var(--text-main); margin-bottom:8px;">⚡ Max 3,500 msgs/day</div>
+                                <button type="button" class="btn btn-success full-btn btn-sm" onclick="openPaymentModal('Basic ⭐', 'card-price-basic', 'card-dur-basic')">
+                                    Subscribe Basic ⭐
+                                </button>
+                            </div>
+
+                            <!-- BUSINESS 👑 -->
+                            <div style="background:rgba(245,158,11,0.04); border:1px solid rgba(245,158,11,0.5); padding:12px; border-radius:12px; text-align:left;">
+                                <div style="font-size:14px; font-weight:800; color:var(--warning);">Business Plan 👑</div>
+                                <div style="font-size:10px; color:var(--text-muted);">20 WhatsApp Accounts</div>
+                                <div style="font-size:20px; font-weight:800; color:var(--warning); margin:6px 0;">
+                                    <span id="card-price-business">₹2,999</span> <span style="font-size:10px; color:var(--text-muted);" id="card-dur-business">/ month</span>
+                                </div>
+                                <div style="font-size:10px; color:var(--text-main); margin-bottom:8px;">⚡ Max 15,000 msgs/day</div>
+                                <button type="button" class="btn btn-primary full-btn btn-sm" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="openPaymentModal('Business 👑', 'card-price-business', 'card-dur-business')">
+                                    Subscribe Business 👑
+                                </button>
+                            </div>
+
+                        </div>
                     </div>
                 </div>
+
             </div>
 
         </main>
