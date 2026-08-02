@@ -491,15 +491,16 @@ io.on('connection', (socket) => {
 
         queueMgr.start(
             async (accId, phoneJid, messageText, mediaItem) => {
-                const res = await waEngine.sendMessageFrom(accId, phoneJid, messageText, mediaItem);
+                await waEngine.sendMessageFrom(accId, phoneJid, messageText, mediaItem);
                 
                 // Track usage on successful send
                 incrementUserSentCount(uid, 1);
                 const updatedQuota = getUserQuotaRecord(uid, email);
                 socket.emit('user_quota_info', updatedQuota);
 
-                return res;
+                return { success: true };
             },
+
             {
                 onProgress: (progressData) => {
                     socket.emit('campaign_progress', progressData);

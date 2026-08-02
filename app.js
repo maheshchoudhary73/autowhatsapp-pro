@@ -885,9 +885,20 @@ const PRICING_MATRIX = {
 };
 
 function openPricingModal() {
-    const modal = document.getElementById('saas-pricing-modal');
-    if (modal) modal.classList.remove('hidden');
+    if (window.openPricingModal) {
+        window.openPricingModal();
+    } else {
+        const modal = document.getElementById('saas-pricing-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.setProperty('display', 'flex', 'important');
+            modal.style.setProperty('visibility', 'visible', 'important');
+            modal.style.setProperty('opacity', '1', 'important');
+            modal.style.setProperty('z-index', '9999999', 'important');
+        }
+    }
 }
+
 
 function closePricingModal() {
     const modal = document.getElementById('saas-pricing-modal');
