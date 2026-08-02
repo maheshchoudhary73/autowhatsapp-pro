@@ -945,3 +945,94 @@ body {
 .log-line.error { color: var(--danger); }
 
 .hidden { display: none !important; }
+.bottom-nav { display: none !important; }
+
+/* PREMIUM EXCEL DROPZONE UI/UX */
+.excel-dropzone-premium {
+    border: 2px dashed rgba(37, 211, 102, 0.4);
+    border-radius: var(--radius-md);
+    padding: 24px 16px;
+    text-align: center;
+    background: rgba(18, 140, 126, 0.04);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.excel-dropzone-premium:hover {
+    border-color: var(--primary);
+    background: rgba(37, 211, 102, 0.08);
+    box-shadow: 0 0 20px rgba(37, 211, 102, 0.15);
+}
+.excel-icon-wrapper {
+    width: 60px;
+    height: 60px;
+    background: rgba(37, 211, 102, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px auto;
+}
+.excel-big-icon {
+    font-size: 30px;
+    color: var(--primary);
+}
+.excel-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.excel-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+.excel-upload-btn {
+    margin-top: 14px;
+    font-weight: 600;
+}
+.excel-supported-formats {
+    margin-top: 12px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+/* SPEED & CAPACITY MATRIX TABLE */
+.speed-table-matrix {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    text-align: left;
+}
+.speed-table-matrix th {
+    background: rgba(255, 255, 255, 0.04);
+    padding: 10px 14px;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 11px;
+    border-bottom: 1px solid var(--card-border);
+}
+.speed-table-matrix td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+}
+.speed-table-matrix tr:hover {
+    background: rgba(37, 211, 102, 0.05);
+}
+.speed-table-matrix tr.active {
+    background: rgba(37, 211, 102, 0.12);
+}
+.speed-tag {
+    color: var(--primary);
+    font-weight: 700;
+    background: rgba(37, 211, 102, 0.1);
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+.capacity-tag {
+    color: #3b82f6;
+    font-weight: 700;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 4px 8px;
+    border-radius: 6px;
+}
