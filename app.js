@@ -1,209 +1,127 @@
 /**
- * AutoWhatsApp Pro - Official Cloud Backend Controller with AWS EC2 Server IP
+ * AutoWhatsApp Pro - Official Mobile & Web Frontend Logic
+ * Pure Instant QR Code Engine Version
  */
 
-// Official AWS Cloud Server IP
 const RENDER_CLOUD_URL = 'http://16.16.160.123:3000';
 
 let socketHost = RENDER_CLOUD_URL;
-if (window.location.protocol.startsWith('http') && !window.location.origin.includes('file://')) {
+if (typeof window !== 'undefined' && window.location && window.location.hostname && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' && !window.location.protocol.startsWith('file')) {
     socketHost = window.location.origin;
 }
 
-const socket = io(socketHost, { 
-    reconnection: true, 
-    reconnectionDelay: 1000, 
-    timeout: 10000,
+const socket = io(socketHost, {
     transports: ['websocket', 'polling']
 });
 
-// Helper for Privacy Masking (e.g. 7340216019 -> 7340XXXXXX)
-function maskPhoneNumber(phone) {
-    if (!phone) return '';
-    const clean = String(phone).replace(/\D/g, '');
-    if (clean.length <= 6) return clean;
-    const visible = clean.substring(0, clean.length - 6);
-    return visible + 'XXXXXX';
-}
-
-// Global State
+// UI State
 let accountsState = [];
 let parsedContacts = [];
+let campaignQueue = [];
+let isCampaignRunning = false;
 let currentMediaObj = null;
-let autoReplyRules = [];
-let activeLoginModes = {};
-let requestedPhoneNumbers = {};
-let campaignStats = { total: 0, sent: 0, pending: 0, failed: 0, dailySent24h: 0, activeAccountsCount: 0, speedCapPerMin: 30 };
 
 // DOM Elements
-const accountsGrid = document.getElementById('accountsGrid');
-const btnAddAccount = document.getElementById('btnAddAccount');
-const btnLogoutAll = document.getElementById('btnLogoutAll');
-const accCountTag = document.getElementById('accCountTag');
+const totalContactsCount = document.getElementById('total-contacts-count');
+const sentCountEl = document.getElementById('sent-count');
+const pendingCountEl = document.getElementById('pending-count');
+const failedCountEl = document.getElementById('failed-count');
+const speedLockBadge = document.getElementById('speed-lock-badge');
+const statSpeedCap = document.getElementById('stat-speed-cap');
+const accountsGrid = document.getElementById('accounts-grid');
+const btnAddAccount = document.getElementById('btn-add-account');
+const btnLogoutAll = document.getElementById('btn-logout-all');
 
-// Routing Controls
-const selectRoutingMode = document.getElementById('selectRoutingMode');
-const specificAccContainer = document.getElementById('specificAccContainer');
-const selectSpecificAcc = document.getElementById('selectSpecificAcc');
-const customRatioContainer = document.getElementById('customRatioContainer');
-const ratioInputsGrid = document.getElementById('ratioInputsGrid');
+const excelFileInput = document.getElementById('excel-file-input');
+const excelDropzone = document.getElementById('excel-dropzone');
+const excelFileStatus = document.getElementById('excel-file-status');
 
-// Media Controls
-const mediaFileInput = document.getElementById('mediaFileInput');
-const btnPickMedia = document.getElementById('btnPickMedia');
-const mediaNameTag = document.getElementById('mediaNameTag');
-const btnClearMedia = document.getElementById('btnClearMedia');
+const campaignMsgText = document.getElementById('campaign-msg-text');
+const btnPickMedia = document.getElementById('btn-pick-media');
+const mediaFileInput = document.getElementById('media-file-input');
+const mediaNameTag = document.getElementById('media-name-tag');
+const btnClearMedia = document.getElementById('btn-clear-media');
 
-// Auto-Responder Controls
-const btnAddRule = document.getElementById('btnAddRule');
-const rulesList = document.getElementById('rulesList');
+const selectRoutingMode = document.getElementById('select-routing-mode');
+const specificAccContainer = document.getElementById('specific-acc-container');
+const selectSpecificAcc = document.getElementById('select-specific-acc');
+const customRatioContainer = document.getElementById('custom-ratio-container');
+const ratioInputsGrid = document.getElementById('ratio-inputs-grid');
 
-// Speed Matrix
-const speedLockBadge = document.getElementById('speedLockBadge');
-const statSpeedCap = document.getElementById('statSpeedCap');
+const btnStartCampaign = document.getElementById('btn-start-campaign');
+const btnExportReport = document.getElementById('btn-export-report');
+const terminalLogs = document.getElementById('terminal-logs');
+const btnClearTerminal = document.getElementById('btn-clear-terminal');
 
-// Message & Excel
-const messageTemplate = document.getElementById('messageTemplate');
-const dropzone = document.getElementById('dropzone');
-const excelFileInput = document.getElementById('excelFileInput');
-const fileStatusBadge = document.getElementById('fileStatusBadge');
-const tablePreviewContainer = document.getElementById('tablePreviewContainer');
-const previewInfo = document.getElementById('previewInfo');
-const btnChangeFile = document.getElementById('btnChangeFile');
-const contactsTable = document.getElementById('contactsTable');
-const tableHeaderRow = document.getElementById('tableHeaderRow');
-const tableBody = document.getElementById('tableBody');
+const SPEED_CAPS = {
+    1: 30,
+    2: 60,
+    3: 100,
+    4: 150,
+    5: 250,
+    6: 350,
+    7: 400,
+    8: 450,
+    9: 500,
+    10: 600
+};
 
-// Action Buttons
-const btnStartCampaign = document.getElementById('btnStartCampaign');
-const btnPauseCampaign = document.getElementById('btnPauseCampaign');
-const btnResumeCampaign = document.getElementById('btnResumeCampaign');
-const btnStopCampaign = document.getElementById('btnStopCampaign');
-const btnExportReport = document.getElementById('btnExportReport');
-
-// Stats Counters
-const statTotal = document.getElementById('statTotal');
-const statSent = document.getElementById('statSent');
-const statPending = document.getElementById('statPending');
-const statFailed = document.getElementById('statFailed');
-const terminalLogs = document.getElementById('terminalLogs');
+// Masking Helper
+function maskPhoneNumber(phone) {
+    if (!phone) return 'Disconnected';
+    const clean = String(phone).replace(/\D/g, '');
+    if (clean.length < 10) return clean;
+    const prefix = clean.slice(0, 4);
+    const suffix = clean.slice(-2);
+    return `${prefix}XXXX${suffix}`;
+}
 
 // Socket Listeners
 socket.on('connect', () => {
-    console.log('✅ Socket connected to AWS Server:', socketHost);
+    console.log('Connected to AutoWhatsApp Pure QR Cloud Engine:', socket.id);
     appendTerminalLog({
         type: 'success',
         timestamp: new Date().toLocaleTimeString(),
-        text: `✅ Connected to 24/7 AWS Server (${socketHost})`
+        text: '⚡ Connected to 24/7 AutoWhatsApp Pure QR Cloud Backend!'
     });
 });
 
 socket.on('accounts_update', (accounts) => {
-    accountsState = accounts || [];
-    renderAccountsUI(accountsState);
+    accountsState = accounts;
+    renderAccounts(accounts);
 });
 
-socket.on('pairing_code_response', ({ success, accId, code, phoneNumber }) => {
-    if (success) {
-        const maskedPhone = maskPhoneNumber(phoneNumber || requestedPhoneNumbers[accId]);
-        const resultContainer = document.getElementById(`code-result-${accId}`);
-        if (resultContainer) {
-            resultContainer.innerHTML = `
-                <div class="pairing-code-box">
-                    <span style="font-size:11px; color:var(--text-muted);">Pairing Code for <strong>${maskedPhone}</strong>:</span>
-                    <div class="pairing-code-display">${code}</div>
-                    <span style="font-size:10px; color:var(--warning); font-weight:600;">Open WhatsApp ➔ Linked Devices ➔ Link with phone number</span>
-                </div>
-            `;
-        }
-        appendTerminalLog({
-            type: 'success',
-            timestamp: new Date().toLocaleTimeString(),
-            text: `🔑 8-Digit Pairing Code for ${maskedPhone}: ${code}`
-        });
-    }
+socket.on('campaign_progress', (data) => {
+    const { sent, pending, failed } = data;
+    sentCountEl.textContent = sent;
+    pendingCountEl.textContent = pending;
+    failedCountEl.textContent = failed;
 });
 
-socket.on('queue_update', (data) => {
-    if (data.stats) {
-        campaignStats = data.stats;
-        statTotal.textContent = data.stats.total || 0;
-        statSent.textContent = data.stats.sent || 0;
-        statPending.textContent = data.stats.pending || 0;
-        statFailed.textContent = data.stats.failed || 0;
-    }
-    if (data.status) toggleCampaignButtons(data.status);
-    if (data.queue && data.queue.length > 0) updateTableStatusPills(data.queue);
+socket.on('campaign_log', (log) => {
+    appendTerminalLog(log);
 });
 
-socket.on('campaign_log', (logEntry) => appendTerminalLog(logEntry));
-
-socket.on('campaign_finished', (summary) => {
+socket.on('auto_reply_log', (data) => {
     appendTerminalLog({
-        type: 'success',
+        type: 'info',
         timestamp: new Date().toLocaleTimeString(),
-        text: '🎉 Campaign Execution Finished!'
+        text: `🤖 Auto-Reply sent from (${data.accId}) to +${maskPhoneNumber(data.from)} [Keyword: "${data.keyword}"]`
     });
-    toggleCampaignButtons('completed');
 });
 
-socket.on('error_alert', ({ message }) => {
-    alert(message);
-    appendTerminalLog({ type: 'error', timestamp: new Date().toLocaleTimeString(), text: `⚠️ ${message}` });
-});
-
-// Helper Functions
-window.insertTag = function(tag) {
-    const startPos = messageTemplate.selectionStart;
-    const endPos = messageTemplate.selectionEnd;
-    const text = messageTemplate.value;
-    messageTemplate.value = text.substring(0, startPos) + tag + text.substring(endPos, text.length);
-    messageTemplate.focus();
-    messageTemplate.selectionStart = startPos + tag.length;
-    messageTemplate.selectionEnd = startPos + tag.length;
-};
-
-window.clearTerminalLogs = function() {
-    terminalLogs.innerHTML = '<div class="log-line system">[System] Logs cleared.</div>';
-};
-
-const SPEED_CAPS = [0, 30, 60, 100, 150, 250, 350, 400, 450, 500, 600];
-
-// ----------------------------------------------------
-// MULTI-ACCOUNT RENDERER (2-BOX GRID PATTERN)
-// ----------------------------------------------------
-
-window.onLoginModeSwitched = function(accId, mode) {
-    activeLoginModes[accId] = mode;
-};
-
-function renderAccountsUI(accounts) {
-    if (!accounts || accounts.length === 0) {
-        accounts = [{ id: 'acc_1', status: 'DISCONNECTED', qrCodeDataUrl: null, pairingCode: null, userInfo: null }];
-    }
-
-    if (accCountTag) accCountTag.textContent = accounts.length;
-
-    let connectedCount = 0;
-    accounts.forEach(a => {
-        if (a.status === 'CONNECTED') connectedCount++;
-    });
-
-    if (btnLogoutAll) {
-        if (connectedCount > 0) btnLogoutAll.classList.remove('hidden');
-        else btnLogoutAll.classList.add('hidden');
-    }
-
+// Render Accounts Multi-Slot Grid (Pure QR)
+function renderAccounts(accounts) {
+    if (!accountsGrid) return;
     let html = '';
+    let connectedCount = 0;
+
     let specificOptionsHtml = '';
     let ratioInputsHtml = '';
 
     accounts.forEach((acc, index) => {
         const isConnected = acc.status === 'CONNECTED';
         const isQrReady = acc.status === 'QR_READY' && acc.qrCode;
-        const isCodeReady = acc.status === 'PAIRING_CODE_READY' && acc.pairingCode;
-
-        let mode = activeLoginModes[acc.id] || (isCodeReady ? 'PHONE' : (isQrReady ? 'QR' : null));
 
         const slotTitle = `WhatsApp Account Slot ${index + 1}`;
         const rawWid = isConnected && acc.userInfo && acc.userInfo.wid ? acc.userInfo.wid : '';
@@ -211,6 +129,7 @@ function renderAccountsUI(accounts) {
         const namePush = isConnected && acc.userInfo ? acc.userInfo.pushname : slotTitle;
 
         if (isConnected) {
+            connectedCount++;
             specificOptionsHtml += `<option value="${acc.id}">📲 ${phoneMasked} (${namePush})</option>`;
             ratioInputsHtml += `
                 <div class="form-group">
@@ -221,7 +140,7 @@ function renderAccountsUI(accounts) {
         }
 
         html += `
-            <div class="account-card ${isConnected ? 'connected' : (isQrReady || isCodeReady ? 'qr-ready' : '')}" id="acc-card-${acc.id}">
+            <div class="account-card ${isConnected ? 'connected' : (isQrReady ? 'qr-ready' : '')}" id="acc-card-${acc.id}">
                 <div class="acc-row-top">
                     <div class="acc-info-left">
                         <div class="acc-avatar"><i class="fa-brands fa-whatsapp"></i></div>
@@ -242,101 +161,27 @@ function renderAccountsUI(accounts) {
                 </div>
 
                 ${!isConnected ? `
-                    <!-- 2-BOX GRID SELECTION -->
-                    <div class="login-grid-2box">
-                        <div class="login-box-card ${mode === 'QR' ? 'active' : ''}" id="box-qr-${acc.id}" onclick="selectLoginBoxMode('${acc.id}', 'QR')">
-                            <div class="login-box-icon"><i class="fa-solid fa-qrcode"></i></div>
-                            <div class="login-box-title">Scan QR Code</div>
-                            <div class="login-box-sub">Tap to scan QR using phone</div>
-                        </div>
-
-                        <div class="login-box-card phone-card ${mode === 'PHONE' ? 'active' : ''}" id="box-phone-${acc.id}" onclick="selectLoginBoxMode('${acc.id}', 'PHONE')">
-                            <div class="login-box-icon"><i class="fa-solid fa-key"></i></div>
-                            <div class="login-box-title">Phone Pair Code</div>
-                            <div class="login-box-sub">Tap for 8-digit code (****-****)</div>
-                        </div>
-                    </div>
-
-                    <!-- QR DISPLAY CONTAINER -->
-                    <div class="qr-container-box ${mode === 'QR' ? '' : 'hidden'}" id="qr-container-${acc.id}" style="margin-top:10px;">
+                    <!-- PURE INSTANT QR DISPLAY CONTAINER -->
+                    <div class="qr-container-box" id="qr-container-${acc.id}" style="margin-top:10px;">
                         ${isQrReady ? `
                             <div class="qr-box-center">
                                 <img src="${acc.qrCode}" alt="Scan QR Code">
                                 <div class="qr-instruction">
-                                    <i class="fa-solid fa-qrcode"></i> Scan this QR code with WhatsApp Linked Devices on your phone
+                                    <i class="fa-solid fa-qrcode"></i> Open WhatsApp ➔ Linked Devices ➔ Scan this QR Code
                                 </div>
                             </div>
                         ` : `
                             <div class="acc-loading-box" style="padding: 14px;">
-                                <i class="fa-solid fa-spinner fa-spin"></i> Loading WhatsApp QR Code... Please wait 3 seconds.
+                                <i class="fa-solid fa-spinner fa-spin"></i> Generating Official WhatsApp QR Code... Please wait 2 seconds.
                             </div>
                         `}
-                    </div>
-
-                    <!-- PHONE PAIRING CONTAINER -->
-                    <div class="pairing-input-box ${mode === 'PHONE' ? '' : 'hidden'}" id="phone-container-${acc.id}" style="margin-top:10px;">
-                        <label class="form-label" style="font-size:11px;">Enter Phone Number with Country Code (e.g. 917340216019)</label>
-                        <div class="pairing-input-row">
-                            <input type="tel" id="phone-input-${acc.id}" class="pairing-input" placeholder="917340216019">
-                            <button type="button" class="btn btn-primary btn-sm" onclick="submitPairingCodeRequest('${acc.id}')">Get 8-Digit Code</button>
-                        </div>
-                        <div id="code-result-${acc.id}">
-                            ${isCodeReady ? `
-                                <div class="pairing-code-box">
-                                    <span style="font-size:11px; color:var(--text-muted);">Pairing Code for <strong>${maskPhoneNumber(requestedPhoneNumbers[acc.id])}</strong>:</span>
-                                    <div class="pairing-code-display">${acc.pairingCode}</div>
-                                    <span style="font-size:10px; color:var(--warning); font-weight:600;">Open WhatsApp ➔ Linked Devices ➔ Link with phone number</span>
-                                </div>
-                            ` : ''}
-                        </div>
                     </div>
                 ` : ''}
             </div>
         `;
     });
 
-    // Save existing input values and pairing code display boxes before re-render
-    const existingInputValues = {};
-    const existingCodeBoxes = {};
-    const activeElId = document.activeElement ? document.activeElement.id : null;
-    const activeSelStart = (document.activeElement && typeof document.activeElement.selectionStart === 'number') ? document.activeElement.selectionStart : null;
-    const activeSelEnd = (document.activeElement && typeof document.activeElement.selectionEnd === 'number') ? document.activeElement.selectionEnd : null;
-
-    accounts.forEach(acc => {
-        const inputEl = document.getElementById(`phone-input-${acc.id}`);
-        if (inputEl) existingInputValues[acc.id] = inputEl.value;
-
-        const codeEl = document.getElementById(`code-result-${acc.id}`);
-        if (codeEl && codeEl.innerHTML.includes('pairing-code-display')) {
-            existingCodeBoxes[acc.id] = codeEl.innerHTML;
-        }
-    });
-
     accountsGrid.innerHTML = html;
-
-    // Restore existing input values and pairing code display boxes after re-render
-    accounts.forEach(acc => {
-        const inputEl = document.getElementById(`phone-input-${acc.id}`);
-        if (inputEl && existingInputValues[acc.id] !== undefined) {
-            inputEl.value = existingInputValues[acc.id];
-        }
-
-        const codeEl = document.getElementById(`code-result-${acc.id}`);
-        if (codeEl && existingCodeBoxes[acc.id]) {
-            codeEl.innerHTML = existingCodeBoxes[acc.id];
-        }
-    });
-
-    if (activeElId) {
-        const restoredEl = document.getElementById(activeElId);
-        if (restoredEl && typeof restoredEl.focus === 'function') {
-            restoredEl.focus();
-            if (activeSelStart !== null && activeSelEnd !== null && typeof restoredEl.setSelectionRange === 'function') {
-                try { restoredEl.setSelectionRange(activeSelStart, activeSelEnd); } catch (e) {}
-            }
-        }
-    }
-
     selectSpecificAcc.innerHTML = specificOptionsHtml || '<option value="">No Accounts Connected</option>';
     ratioInputsGrid.innerHTML = ratioInputsHtml || '<p style="font-size:11px; color:var(--text-muted);">Connect WhatsApp accounts to set custom quotas.</p>';
 
@@ -351,58 +196,6 @@ function renderAccountsUI(accounts) {
     });
 }
 
-window.selectLoginBoxMode = function(accId, mode) {
-    activeLoginModes[accId] = mode;
-    const boxQr = document.getElementById(`box-qr-${accId}`);
-    const boxPhone = document.getElementById(`box-phone-${accId}`);
-    const qrContainer = document.getElementById(`qr-container-${accId}`);
-    const phoneContainer = document.getElementById(`phone-container-${accId}`);
-
-    if (boxQr) boxQr.classList.remove('active');
-    if (boxPhone) boxPhone.classList.remove('active');
-    if (qrContainer) qrContainer.classList.add('hidden');
-    if (phoneContainer) phoneContainer.classList.add('hidden');
-
-    if (mode === 'QR') {
-        if (boxQr) boxQr.classList.add('active');
-        if (qrContainer) qrContainer.classList.remove('hidden');
-        socket.emit('request_qr', { accId });
-    } else if (mode === 'PHONE') {
-        if (boxPhone) boxPhone.classList.add('active');
-        if (phoneContainer) phoneContainer.classList.remove('hidden');
-    }
-};
-
-window.submitPairingCodeRequest = function(accId) {
-    const input = document.getElementById(`phone-input-${accId}`);
-    if (!input || !input.value.trim()) {
-        alert('Please enter your phone number with country code (e.g. 917340216019)');
-        return;
-    }
-
-    const phone = input.value.trim();
-    requestedPhoneNumbers[accId] = phone;
-    activeLoginModes[accId] = 'PHONE';
-
-    socket.emit('request_pairing_code', { accId, phoneNumber: phone });
-    
-    const maskedPhone = maskPhoneNumber(phone);
-    const resultContainer = document.getElementById(`code-result-${accId}`);
-    if (resultContainer) {
-        resultContainer.innerHTML = `
-            <div class="acc-loading-box" style="padding: 12px; margin-top: 8px;">
-                <i class="fa-solid fa-spinner fa-spin"></i> Requesting 8-digit pairing code for <strong>${maskedPhone}</strong>...
-            </div>
-        `;
-    }
-
-    appendTerminalLog({
-        type: 'info',
-        timestamp: new Date().toLocaleTimeString(),
-        text: `⏳ Requesting 8-digit pairing code for ${maskedPhone}...`
-    });
-};
-
 window.logoutAccount = function(accId) {
     if (confirm(`Logout WhatsApp account slot (${accId})?`)) {
         socket.emit('logout_account', { accId });
@@ -413,7 +206,7 @@ if (btnAddAccount) {
     btnAddAccount.addEventListener('click', () => {
         const hasUnconnected = accountsState.some(a => a.status !== 'CONNECTED');
         if (hasUnconnected) {
-            alert('Please scan or pair the current WhatsApp QR / Code before adding a new account!');
+            alert('Please scan the current WhatsApp QR code before adding a new account!');
             return;
         }
         socket.emit('add_account');
@@ -462,255 +255,172 @@ btnClearMedia.addEventListener('click', () => {
     currentMediaObj = null;
     mediaFileInput.value = '';
     mediaNameTag.textContent = 'No File Attached';
-    mediaNameTag.style.color = 'var(--text-muted)';
     btnClearMedia.classList.add('hidden');
 });
 
-// AUTO-RESPONDER RULES
-let ruleIdCounter = 1;
-
-btnAddRule.addEventListener('click', () => {
-    const ruleId = ruleIdCounter++;
-    autoReplyRules.push({ id: ruleId, keyword: '', replyText: '' });
-    renderAutoReplyRules();
-});
-
-function renderAutoReplyRules() {
-    if (autoReplyRules.length === 0) {
-        rulesList.innerHTML = '<p style="font-size:11px; color:var(--text-muted);">No rules added. Click "+ Add Rule" to create automated replies.</p>';
-        return;
-    }
-
-    let html = '';
-    autoReplyRules.forEach((rule, idx) => {
-        html += `
-            <div class="rule-card" id="rule-card-${rule.id}">
-                <div class="rule-header">
-                    <span style="font-size:11px; font-weight:700; color:var(--primary);">Rule #${idx + 1}</span>
-                    <button type="button" class="btn-clear" onclick="removeRule(${rule.id})">
-                        <i class="fa-solid fa-trash-can" style="color:var(--danger);"></i> Remove
-                    </button>
-                </div>
-                <input type="text" class="rule-kw-input" placeholder="Keyword e.g. 1 or BUY or HI" value="${rule.keyword}" oninput="updateRuleKw(${rule.id}, this.value)">
-                <textarea class="rule-reply-input" rows="2" placeholder="Automated Reply Message e.g. Here is your Buy Link: https://..." oninput="updateRuleReply(${rule.id}, this.value)">${rule.replyText}</textarea>
-            </div>
-        `;
-    });
-    rulesList.innerHTML = html;
-}
-
-window.updateRuleKw = function(id, val) {
-    const r = autoReplyRules.find(x => x.id === id);
-    if (r) r.keyword = val;
-};
-
-window.updateRuleReply = function(id, val) {
-    const r = autoReplyRules.find(x => x.id === id);
-    if (r) r.replyText = val;
-};
-
-window.removeRule = function(id) {
-    autoReplyRules = autoReplyRules.filter(x => x.id !== id);
-    renderAutoReplyRules();
-};
-
 // EXCEL PARSER
-dropzone.addEventListener('click', () => excelFileInput.click());
-dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.borderColor = 'var(--primary)'; });
-dropzone.addEventListener('dragleave', () => { dropzone.style.borderColor = 'var(--card-border)'; });
-dropzone.addEventListener('drop', (e) => {
+excelDropzone.addEventListener('click', () => excelFileInput.click());
+
+excelFileInput.addEventListener('change', handleExcelUpload);
+
+excelDropzone.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dropzone.style.borderColor = 'var(--card-border)';
-    if (e.dataTransfer.files.length > 0) handleFileSelect(e.dataTransfer.files[0]);
+    excelDropzone.classList.add('active');
 });
 
-excelFileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
+excelDropzone.addEventListener('dragleave', () => {
+    excelDropzone.classList.remove('active');
 });
 
-btnChangeFile.addEventListener('click', () => {
-    parsedContacts = [];
-    dropzone.classList.remove('hidden');
-    tablePreviewContainer.classList.add('hidden');
-    fileStatusBadge.textContent = 'No File';
-    fileStatusBadge.style.color = 'var(--text-muted)';
-    statTotal.textContent = '0';
-    statPending.textContent = '0';
+excelDropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    excelDropzone.classList.remove('active');
+    if (e.dataTransfer.files.length > 0) {
+        excelFileInput.files = e.dataTransfer.files;
+        handleExcelUpload();
+    }
 });
 
-function handleFileSelect(file) {
+function handleExcelUpload() {
+    const file = excelFileInput.files[0];
+    if (!file) return;
+
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const sheetName = workbook.SheetNames[0];
-            const sheet = workbook.Sheets[sheetName];
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
 
-            let rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-            if (!rawRows || rawRows.length === 0) {
-                alert('Excel sheet is empty!');
+            const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            parsedContacts = [];
+
+            if (rows.length < 2) {
+                alert('Uploaded Excel/CSV file is empty or missing headers!');
                 return;
             }
 
-            let headers = Object.keys(rawRows[0]);
-            const isHeaderAPhoneNumber = headers.some(h => String(h).replace(/\D/g, '').length >= 10);
-            if (isHeaderAPhoneNumber) {
-                const headerRow = {};
-                headers.forEach(h => headerRow[h] = h);
-                rawRows.unshift(headerRow);
+            const headers = rows[0].map(h => String(h || '').trim().toLowerCase());
+            
+            let phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile') || h.includes('number') || h.includes('contact'));
+            let nameIdx = headers.findIndex(h => h.includes('name') || h.includes('user') || h.includes('customer'));
+
+            if (phoneIdx === -1) phoneIdx = 0;
+            if (nameIdx === -1) nameIdx = 1;
+
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+
+                let rawPhone = row[phoneIdx] ? String(row[phoneIdx]).trim() : '';
+                let name = (nameIdx !== -1 && row[nameIdx]) ? String(row[nameIdx]).trim() : 'Customer';
+
+                let cleanPhone = rawPhone.replace(/\D/g, '');
+
+                if (cleanPhone.length >= 10) {
+                    parsedContacts.push({
+                        name: name || 'Customer',
+                        phone: cleanPhone,
+                        rawPhone: rawPhone
+                    });
+                }
             }
 
-            parsedContacts = rawRows;
-            renderContactsPreview(headers, rawRows);
+            totalContactsCount.textContent = parsedContacts.length;
+            pendingCountEl.textContent = parsedContacts.length;
+            sentCountEl.textContent = 0;
+            failedCountEl.textContent = 0;
 
-            dropzone.classList.add('hidden');
-            tablePreviewContainer.classList.remove('hidden');
-            fileStatusBadge.textContent = `Loaded ${file.name}`;
-            fileStatusBadge.style.color = 'var(--primary)';
-            
-            previewInfo.textContent = `Total Contacts Loaded: ${parsedContacts.length}`;
-            statTotal.textContent = parsedContacts.length;
-            statPending.textContent = parsedContacts.length;
+            excelFileStatus.innerHTML = `
+                <div style="color:var(--success); font-weight:600;">
+                    <i class="fa-solid fa-file-csv"></i> Loaded ${parsedContacts.length} valid contacts from ${file.name}
+                </div>
+            `;
 
             appendTerminalLog({
-                type: 'info',
+                type: 'success',
                 timestamp: new Date().toLocaleTimeString(),
-                text: `📁 Loaded file ${file.name} with ${parsedContacts.length} contacts.`
+                text: `📊 Successfully parsed ${parsedContacts.length} contacts from ${file.name}`
             });
+
         } catch (err) {
-            alert('File processing error: ' + err.message);
+            console.error('Excel parse error:', err);
+            alert('Failed to parse Excel file. Please ensure it is a valid .xlsx or .csv file.');
         }
     };
     reader.readAsArrayBuffer(file);
 }
 
-function renderContactsPreview(headers, rows) {
-    let headerHtml = '<th>#</th>';
-    headers.forEach(h => headerHtml += `<th>${h}</th>`);
-    headerHtml += '<th>Status</th>';
-    tableHeaderRow.innerHTML = headerHtml;
-
-    let bodyHtml = '';
-    rows.slice(0, 100).forEach((row, i) => {
-        bodyHtml += `<tr id="contact-row-${i + 1}">`;
-        bodyHtml += `<td>${i + 1}</td>`;
-        headers.forEach(h => bodyHtml += `<td>${row[h] !== undefined ? row[h] : ''}</td>`);
-        bodyHtml += `<td><span class="status-pill pending" id="pill-${i + 1}">Pending</span></td>`;
-        bodyHtml += `</tr>`;
-    });
-    tableBody.innerHTML = bodyHtml;
-}
-
-function updateTableStatusPills(queue) {
-    queue.forEach((item) => {
-        const pill = document.getElementById(`pill-${item.id}`);
-        if (pill) {
-            pill.className = `status-pill ${item.status}`;
-            pill.textContent = item.status.toUpperCase();
-        }
-    });
-}
-
-// CAMPAIGN EXECUTION
+// CAMPAIGN CONTROLLER
 btnStartCampaign.addEventListener('click', () => {
-    const connectedAccounts = accountsState.filter(a => a.status === 'CONNECTED');
-    if (connectedAccounts.length === 0) {
-        alert('Please connect at least 1 WhatsApp account before starting campaign!');
+    if (isCampaignRunning) {
+        alert('Campaign is already running!');
         return;
     }
 
     if (parsedContacts.length === 0) {
-        alert('Please upload an Excel file containing contacts first!');
+        alert('Please select a valid Excel/CSV file with contacts first!');
         return;
     }
 
-    const template = messageTemplate.value.trim();
-    if (!template && !currentMediaObj) {
-        alert('Please write a message template or attach a media file before starting!');
+    const messageTemplate = campaignMsgText.value.trim();
+    if (!messageTemplate) {
+        alert('Please enter a campaign message text!');
+        return;
+    }
+
+    const connectedAccs = accountsState.filter(a => a.status === 'CONNECTED');
+    if (connectedAccs.length === 0) {
+        alert('No WhatsApp account is connected! Please scan QR code first.');
         return;
     }
 
     const mode = selectRoutingMode.value;
-    const routingConfig = {
-        mode,
-        selectedAccId: selectSpecificAcc.value,
-        customRatioLimits: {}
-    };
+    let customQuotas = {};
 
     if (mode === 'CUSTOM_RATIO') {
         document.querySelectorAll('.custom-quota-input').forEach(input => {
             const accId = input.getAttribute('data-accid');
-            const val = parseInt(input.value) || 99999;
-            routingConfig.customRatioLimits[accId] = val;
+            const val = parseInt(input.value) || 0;
+            customQuotas[accId] = val;
         });
     }
 
-    const settings = { maxPer24Hours: 2000, minDelaySeconds: 3, maxDelaySeconds: 8 };
-
-    socket.emit('start_campaign', {
+    const campaignPayload = {
         contacts: parsedContacts,
-        template,
-        settings,
-        routingConfig,
+        messageTemplate: messageTemplate,
         mediaObj: currentMediaObj,
-        autoReplyRules
-    });
+        dispatchMode: mode,
+        specificAccId: selectSpecificAcc.value,
+        customQuotas: customQuotas
+    };
+
+    isCampaignRunning = true;
+    btnStartCampaign.disabled = true;
+    btnStartCampaign.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Campaign Running...';
+
+    socket.emit('start_campaign', campaignPayload);
 
     appendTerminalLog({
         type: 'info',
         timestamp: new Date().toLocaleTimeString(),
-        text: `🚀 Starting Campaign (${mode} mode across ${connectedAccounts.length} numbers)...`
+        text: `🚀 Launching campaign to ${parsedContacts.length} contacts using ${connectedAccs.length} active WhatsApp accounts...`
     });
 });
 
-btnPauseCampaign.addEventListener('click', () => socket.emit('pause_campaign'));
-btnResumeCampaign.addEventListener('click', () => socket.emit('resume_campaign'));
-btnStopCampaign.addEventListener('click', () => socket.emit('stop_campaign'));
-
-function toggleCampaignButtons(status) {
-    btnStartCampaign.classList.add('hidden');
-    btnPauseCampaign.classList.add('hidden');
-    btnResumeCampaign.classList.add('hidden');
-    btnStopCampaign.classList.add('hidden');
-
-    if (status === 'running') {
-        btnPauseCampaign.classList.remove('hidden');
-        btnStopCampaign.classList.remove('hidden');
-    } else if (status === 'paused') {
-        btnResumeCampaign.classList.remove('hidden');
-        btnStopCampaign.classList.remove('hidden');
-    } else {
-        btnStartCampaign.classList.remove('hidden');
-    }
+// TERMINAL LOG HELPERS
+function appendTerminalLog(log) {
+    if (!terminalLogs) return;
+    const div = document.createElement('div');
+    div.className = `log-entry ${log.type || 'info'}`;
+    div.innerHTML = `<span class="log-time">[${log.timestamp || new Date().toLocaleTimeString()}]</span> ${log.text}`;
+    terminalLogs.appendChild(div);
+    terminalLogs.scrollTop = terminalLogs.scrollHeight;
 }
 
-btnExportReport.addEventListener('click', () => {
-    if (parsedContacts.length === 0) {
-        alert('No campaign data to export!');
-        return;
-    }
-
-    let csvContent = "data:text/csv;charset=utf-8,Index,Name,Phone,Status\n";
-    parsedContacts.forEach((c, idx) => {
-        const pill = document.getElementById(`pill-${idx + 1}`);
-        const status = pill ? pill.textContent : 'Pending';
-        csvContent += `${idx + 1},"${c.Name || c.name || ''}","${c.Phone || c.phone || ''}","${status}"\n`;
+if (btnClearTerminal) {
+    btnClearTerminal.addEventListener('click', () => {
+        terminalLogs.innerHTML = '<div class="log-entry info"><span class="log-time">[System]</span> Terminal logs cleared.</div>';
     });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `autowhatsapp_pro_report_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-});
-
-function appendTerminalLog(log) {
-    const line = document.createElement('div');
-    line.className = `log-line ${log.type || 'info'}`;
-    line.textContent = `[${log.timestamp || new Date().toLocaleTimeString()}] ${log.text}`;
-    terminalLogs.appendChild(line);
-    terminalLogs.scrollTop = terminalLogs.scrollHeight;
 }
