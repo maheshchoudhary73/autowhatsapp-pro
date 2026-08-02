@@ -306,9 +306,10 @@ function getUserQueueManager(uid) {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Serve static web app from public directory & root directory
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static web app from root directory & public directory
 app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
+
 
 // Socket.io Multi-Tenant Authenticated Connection Logic
 io.on('connection', (socket) => {
