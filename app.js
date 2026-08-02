@@ -295,24 +295,35 @@ function renderAccountsUI(accounts) {
         `;
     });
 
-    // Save existing input values and active focus state before re-render
+    // Save existing input values and pairing code display boxes before re-render
     const existingInputValues = {};
+    const existingCodeBoxes = {};
     const activeElId = document.activeElement ? document.activeElement.id : null;
     const activeSelStart = (document.activeElement && typeof document.activeElement.selectionStart === 'number') ? document.activeElement.selectionStart : null;
     const activeSelEnd = (document.activeElement && typeof document.activeElement.selectionEnd === 'number') ? document.activeElement.selectionEnd : null;
 
     accounts.forEach(acc => {
-        const el = document.getElementById(`phone-input-${acc.id}`);
-        if (el) existingInputValues[acc.id] = el.value;
+        const inputEl = document.getElementById(`phone-input-${acc.id}`);
+        if (inputEl) existingInputValues[acc.id] = inputEl.value;
+
+        const codeEl = document.getElementById(`code-result-${acc.id}`);
+        if (codeEl && codeEl.innerHTML.includes('pairing-code-display')) {
+            existingCodeBoxes[acc.id] = codeEl.innerHTML;
+        }
     });
 
     accountsGrid.innerHTML = html;
 
-    // Restore existing input values and active focus state after re-render
+    // Restore existing input values and pairing code display boxes after re-render
     accounts.forEach(acc => {
-        const el = document.getElementById(`phone-input-${acc.id}`);
-        if (el && existingInputValues[acc.id] !== undefined) {
-            el.value = existingInputValues[acc.id];
+        const inputEl = document.getElementById(`phone-input-${acc.id}`);
+        if (inputEl && existingInputValues[acc.id] !== undefined) {
+            inputEl.value = existingInputValues[acc.id];
+        }
+
+        const codeEl = document.getElementById(`code-result-${acc.id}`);
+        if (codeEl && existingCodeBoxes[acc.id]) {
+            codeEl.innerHTML = existingCodeBoxes[acc.id];
         }
     });
 
@@ -349,6 +360,7 @@ window.submitPairingCodeRequest = function(accId) {
 
     const phone = input.value.trim();
     requestedPhoneNumbers[accId] = phone;
+    activeLoginModes[accId] = 'PHONE';
 
     socket.emit('request_pairing_code', { accId, phoneNumber: phone });
     
