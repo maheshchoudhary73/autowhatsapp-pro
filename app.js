@@ -12,6 +12,7 @@ if (typeof window !== 'undefined' && window.location && window.location.hostname
 
 let currentUser = null;
 let socket = null;
+let isRefreshingQr = false;
 
 // UI State
 let accountsState = [];
@@ -89,23 +90,23 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             const displayName = user.displayName || user.email?.split('@')[0] || 'Pro SaaS User';
             const avatarUrl = user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=00f2fe&color=fff`;
 
-            userDisplayName.textContent = displayName;
-            userAvatarImg.src = avatarUrl;
+            if (userDisplayName) userDisplayName.textContent = displayName;
+            if (userAvatarImg) userAvatarImg.src = avatarUrl;
             
-            sidebarUserName.textContent = displayName;
-            sidebarUserEmail.textContent = user.email || user.uid;
-            sidebarUserAvatar.src = avatarUrl;
+            if (sidebarUserName) sidebarUserName.textContent = displayName;
+            if (sidebarUserEmail) sidebarUserEmail.textContent = user.email || user.uid;
+            if (sidebarUserAvatar) sidebarUserAvatar.src = avatarUrl;
 
-            saasAuthOverlay.classList.add('hidden');
-            mainAppContainer.classList.remove('hidden');
+            if (saasAuthOverlay) saasAuthOverlay.classList.add('hidden');
+            if (mainAppContainer) mainAppContainer.classList.remove('hidden');
 
             // Connect Isolated Socket for User
             initUserSocket(user);
 
         } else {
             currentUser = null;
-            saasAuthOverlay.classList.remove('hidden');
-            mainAppContainer.classList.add('hidden');
+            if (saasAuthOverlay) saasAuthOverlay.classList.remove('hidden');
+            if (mainAppContainer) mainAppContainer.classList.add('hidden');
             if (socket) {
                 socket.disconnect();
             }
@@ -199,28 +200,36 @@ function initUserSocket(user) {
             const used = quota.dailySentToday || 0;
             const max = quota.plan === 'PRO' ? '∞' : (quota.dailyMaxQuota || 50);
             
-            quotaUsedMsgs.textContent = used;
-            quotaMaxMsgs.textContent = max;
+            if (quotaUsedMsgs) quotaUsedMsgs.textContent = used;
+            if (quotaMaxMsgs) quotaMaxMsgs.textContent = max;
 
             if (quota.plan === 'PRO') {
-                userPlanBadge.textContent = 'PRO Plan';
-                userPlanBadge.className = 'user-plan-tag pro';
-                sidebarPlanBadge.textContent = 'PRO Plan';
-                sidebarPlanBadge.style.color = 'var(--primary)';
+                if (userPlanBadge) {
+                    userPlanBadge.textContent = 'PRO Plan';
+                    userPlanBadge.className = 'user-plan-tag pro';
+                }
+                if (sidebarPlanBadge) {
+                    sidebarPlanBadge.textContent = 'PRO Plan';
+                    sidebarPlanBadge.style.color = 'var(--primary)';
+                }
             } else {
-                userPlanBadge.textContent = `Free Trial: ${Math.max(0, 50 - used)} msgs left today`;
-                userPlanBadge.className = 'user-plan-tag free';
-                sidebarPlanBadge.textContent = 'Free Trial';
-                sidebarPlanBadge.style.color = 'var(--accent)';
+                if (userPlanBadge) {
+                    userPlanBadge.textContent = `Free Trial: ${Math.max(0, 50 - used)} msgs left today`;
+                    userPlanBadge.className = 'user-plan-tag free';
+                }
+                if (sidebarPlanBadge) {
+                    sidebarPlanBadge.textContent = 'Free Trial';
+                    sidebarPlanBadge.style.color = 'var(--accent)';
+                }
             }
         }
     });
 
     socket.on('campaign_progress', (data) => {
         const { sent, pending, failed } = data;
-        sentCountEl.textContent = sent;
-        pendingCountEl.textContent = pending;
-        failedCountEl.textContent = failed;
+        if (sentCountEl) sentCountEl.textContent = sent;
+        if (pendingCountEl) pendingCountEl.textContent = pending;
+        if (failedCountEl) failedCountEl.textContent = failed;
     });
 
     socket.on('campaign_log', (log) => {
@@ -314,10 +323,9 @@ function renderAccounts(accounts) {
                                 <i class="fa-solid fa-qrcode"></i> Open WhatsApp ➔ Linked Devices ➔ Scan this QR Code
                             </div>
                         ` : `
-                            <div class="acc-loading-box" style="padding: 16px; border:1px dashed var(--border-color); border-radius:12px;" onclick="requestFreshQrSlot('${acc.id}')">
+                            <div class="acc-loading-box" style="padding: 16px; border:1px dashed var(--border-color); border-radius:12px;">
                                 <i class="fa-solid fa-spinner fa-spin" style="font-size:20px; color:var(--primary);"></i>
                                 <div style="margin-top:8px; font-size:12px;">Generating Fresh WhatsApp QR Code...</div>
-                                <span style="font-size:10px; color:var(--text-muted); cursor:pointer;">(Tap here to trigger instant fresh QR)</span>
                             </div>
                         `}
                     </div>
@@ -327,22 +335,26 @@ function renderAccounts(accounts) {
     });
 
     accountsGrid.innerHTML = html;
-    selectSpecificAcc.innerHTML = specificOptionsHtml || '<option value="">No Accounts Connected</option>';
-    ratioInputsGrid.innerHTML = ratioInputsHtml || '<p style="font-size:11px; color:var(--text-muted);">Connect WhatsApp accounts to set custom quotas.</p>';
+    if (selectSpecificAcc) selectSpecificAcc.innerHTML = specificOptionsHtml || '<option value="">No Accounts Connected</option>';
+    if (ratioInputsGrid) ratioInputsGrid.innerHTML = ratioInputsHtml || '<p style="font-size:11px; color:var(--text-muted);">Connect WhatsApp accounts to set custom quotas.</p>';
 
     const cap = SPEED_CAPS[connectedCount] || (connectedCount > 10 ? 600 : 30);
-    speedLockBadge.textContent = `${connectedCount} Acc = ${cap} msgs/min`;
-    statSpeedCap.textContent = `${cap} Msgs / Min`;
+    if (speedLockBadge) speedLockBadge.textContent = `${connectedCount} Acc = ${cap} msgs/min`;
+    if (statSpeedCap) statSpeedCap.textContent = `${cap} Msgs / Min`;
 }
 
 window.requestFreshQrSlot = function(accId) {
-    if (!socket) return;
+    if (!socket || isRefreshingQr) return;
+    isRefreshingQr = true;
+
     appendTerminalLog({
         type: 'info',
         timestamp: new Date().toLocaleTimeString(),
         text: `🔄 Requesting instant fresh QR Code for ${accId}...`
     });
+
     socket.emit('request_qr', { accId });
+    setTimeout(() => { isRefreshingQr = false; }, 2000);
 };
 
 window.logoutAccount = function(accId) {
@@ -379,42 +391,50 @@ if (btnLogoutAll) {
     });
 }
 
-selectRoutingMode.addEventListener('change', (e) => {
-    const mode = e.target.value;
-    specificAccContainer.classList.add('hidden');
-    customRatioContainer.classList.add('hidden');
+if (selectRoutingMode) {
+    selectRoutingMode.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        if (specificAccContainer) specificAccContainer.classList.add('hidden');
+        if (customRatioContainer) customRatioContainer.classList.add('hidden');
 
-    if (mode === 'SPECIFIC_ACCOUNT') specificAccContainer.classList.remove('hidden');
-    else if (mode === 'CUSTOM_RATIO') customRatioContainer.classList.remove('hidden');
-});
+        if (mode === 'SPECIFIC_ACCOUNT' && specificAccContainer) specificAccContainer.classList.remove('hidden');
+        else if (mode === 'CUSTOM_RATIO' && customRatioContainer) customRatioContainer.classList.remove('hidden');
+    });
+}
 
 // MEDIA HANDLERS
-btnPickMedia.addEventListener('click', () => mediaFileInput.click());
+if (btnPickMedia) btnPickMedia.addEventListener('click', () => mediaFileInput.click());
 
-mediaFileInput.addEventListener('change', (e) => {
-    if (e.target.files.length > 0) {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            currentMediaObj = {
-                data: evt.target.result.split(',')[1],
-                mimetype: file.type,
-                filename: file.name
+if (mediaFileInput) {
+    mediaFileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                currentMediaObj = {
+                    data: evt.target.result.split(',')[1],
+                    mimetype: file.type,
+                    filename: file.name
+                };
+                if (mediaNameTag) {
+                    mediaNameTag.textContent = `📎 ${file.name} (${Math.round(file.size / 1024)} KB)`;
+                    mediaNameTag.style.color = 'var(--primary)';
+                }
+                if (btnClearMedia) btnClearMedia.classList.remove('hidden');
             };
-            mediaNameTag.textContent = `📎 ${file.name} (${Math.round(file.size / 1024)} KB)`;
-            mediaNameTag.style.color = 'var(--primary)';
-            btnClearMedia.classList.remove('hidden');
-        };
-        reader.readAsDataURL(file);
-    }
-});
+            reader.readAsDataURL(file);
+        }
+    });
+}
 
-btnClearMedia.addEventListener('click', () => {
-    currentMediaObj = null;
-    mediaFileInput.value = '';
-    mediaNameTag.textContent = 'No File Attached';
-    btnClearMedia.classList.add('hidden');
-});
+if (btnClearMedia) {
+    btnClearMedia.addEventListener('click', () => {
+        currentMediaObj = null;
+        if (mediaFileInput) mediaFileInput.value = '';
+        if (mediaNameTag) mediaNameTag.textContent = 'No File Attached';
+        btnClearMedia.classList.add('hidden');
+    });
+}
 
 // EXCEL PARSER & SMART MULTI-COLUMN DATA TABLE PREVIEW
 if (excelDropzone) {
@@ -441,7 +461,7 @@ if (excelDropzone) {
     });
 }
 
-excelFileInput.addEventListener('change', handleExcelUpload);
+if (excelFileInput) excelFileInput.addEventListener('change', handleExcelUpload);
 
 function handleExcelUpload() {
     const file = excelFileInput.files[0];
@@ -510,16 +530,18 @@ function handleExcelUpload() {
                 }
             }
 
-            totalContactsCount.textContent = parsedContacts.length;
-            pendingCountEl.textContent = parsedContacts.length;
-            sentCountEl.textContent = 0;
-            failedCountEl.textContent = 0;
+            if (totalContactsCount) totalContactsCount.textContent = parsedContacts.length;
+            if (pendingCountEl) pendingCountEl.textContent = parsedContacts.length;
+            if (sentCountEl) sentCountEl.textContent = 0;
+            if (failedCountEl) failedCountEl.textContent = 0;
 
-            excelFileStatus.innerHTML = `
-                <div style="color:var(--success); font-weight:600;">
-                    <i class="fa-solid fa-file-csv"></i> Loaded ${parsedContacts.length} valid contacts from ${file.name}
-                </div>
-            `;
+            if (excelFileStatus) {
+                excelFileStatus.innerHTML = `
+                    <div style="color:var(--success); font-weight:600;">
+                        <i class="fa-solid fa-file-csv"></i> Loaded ${parsedContacts.length} valid contacts from ${file.name}
+                    </div>
+                `;
+            }
 
             renderExcelPreviewTable(file.name);
 
@@ -597,62 +619,64 @@ function updateContactTableStatus(cleanPhone, statusStr) {
 }
 
 // CAMPAIGN CONTROLLER
-btnStartCampaign.addEventListener('click', () => {
-    if (!socket) return;
-    if (isCampaignRunning) {
-        alert('Campaign is already running!');
-        return;
-    }
+if (btnStartCampaign) {
+    btnStartCampaign.addEventListener('click', () => {
+        if (!socket) return;
+        if (isCampaignRunning) {
+            alert('Campaign is already running!');
+            return;
+        }
 
-    if (parsedContacts.length === 0) {
-        alert('Please select a valid Excel/CSV file with contacts first!');
-        return;
-    }
+        if (parsedContacts.length === 0) {
+            alert('Please select a valid Excel/CSV file with contacts first!');
+            return;
+        }
 
-    const messageTemplate = campaignMsgText.value.trim();
-    if (!messageTemplate) {
-        alert('Please enter a campaign message text!');
-        return;
-    }
+        const messageTemplate = campaignMsgText.value.trim();
+        if (!messageTemplate) {
+            alert('Please enter a campaign message text!');
+            return;
+        }
 
-    const connectedAccs = accountsState.filter(a => a.status === 'CONNECTED');
-    if (connectedAccs.length === 0) {
-        alert('No WhatsApp account is connected! Please scan QR code first.');
-        return;
-    }
+        const connectedAccs = accountsState.filter(a => a.status === 'CONNECTED');
+        if (connectedAccs.length === 0) {
+            alert('No WhatsApp account is connected! Please scan QR code first.');
+            return;
+        }
 
-    const mode = selectRoutingMode.value;
-    let customQuotas = {};
+        const mode = selectRoutingMode.value;
+        let customQuotas = {};
 
-    if (mode === 'CUSTOM_RATIO') {
-        document.querySelectorAll('.custom-quota-input').forEach(input => {
-            const accId = input.getAttribute('data-accid');
-            const val = parseInt(input.value) || 0;
-            customQuotas[accId] = val;
+        if (mode === 'CUSTOM_RATIO') {
+            document.querySelectorAll('.custom-quota-input').forEach(input => {
+                const accId = input.getAttribute('data-accid');
+                const val = parseInt(input.value) || 0;
+                customQuotas[accId] = val;
+            });
+        }
+
+        const campaignPayload = {
+            contacts: parsedContacts,
+            messageTemplate: messageTemplate,
+            mediaObj: currentMediaObj,
+            dispatchMode: mode,
+            specificAccId: selectSpecificAcc.value,
+            customQuotas: customQuotas
+        };
+
+        isCampaignRunning = true;
+        btnStartCampaign.disabled = true;
+        btnStartCampaign.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Campaign Running...';
+
+        socket.emit('start_campaign', campaignPayload);
+
+        appendTerminalLog({
+            type: 'info',
+            timestamp: new Date().toLocaleTimeString(),
+            text: `🚀 Launching campaign to ${parsedContacts.length} contacts using ${connectedAccs.length} active WhatsApp accounts...`
         });
-    }
-
-    const campaignPayload = {
-        contacts: parsedContacts,
-        messageTemplate: messageTemplate,
-        mediaObj: currentMediaObj,
-        dispatchMode: mode,
-        specificAccId: selectSpecificAcc.value,
-        customQuotas: customQuotas
-    };
-
-    isCampaignRunning = true;
-    btnStartCampaign.disabled = true;
-    btnStartCampaign.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Campaign Running...';
-
-    socket.emit('start_campaign', campaignPayload);
-
-    appendTerminalLog({
-        type: 'info',
-        timestamp: new Date().toLocaleTimeString(),
-        text: `🚀 Launching campaign to ${parsedContacts.length} contacts using ${connectedAccs.length} active WhatsApp accounts...`
     });
-});
+}
 
 // TERMINAL LOG HELPERS
 function appendTerminalLog(log) {
@@ -666,6 +690,6 @@ function appendTerminalLog(log) {
 
 if (btnClearTerminal) {
     btnClearTerminal.addEventListener('click', () => {
-        terminalLogs.innerHTML = '<div class="log-entry info"><span class="log-time">[System]</span> Terminal logs cleared.</div>';
+        if (terminalLogs) terminalLogs.innerHTML = '<div class="log-entry info"><span class="log-time">[System]</span> Terminal logs cleared.</div>';
     });
 }
