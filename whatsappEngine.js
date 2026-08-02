@@ -288,7 +288,11 @@ class WhatsAppEngine {
             throw new Error(`Account ${accId} is not connected!`);
         }
 
-        let cleanJid = recipientJid.includes('@') ? recipientJid : `${recipientJid.replace(/\D/g, '')}@s.whatsapp.net`;
+        let digits = recipientJid.replace(/\D/g, '');
+        if (digits.length === 10) {
+            digits = `91${digits}`; // Auto-add India country code 91 for 10-digit mobile numbers
+        }
+        let cleanJid = recipientJid.includes('@') ? recipientJid : `${digits}@s.whatsapp.net`;
 
         if (mediaObj && mediaObj.data && mediaObj.mimetype) {
             const buffer = Buffer.from(mediaObj.data, 'base64');

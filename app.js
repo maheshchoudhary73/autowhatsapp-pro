@@ -1,6 +1,6 @@
 /**
  * AutoWhatsApp Pro - Official Mobile & Web Frontend Logic
- * Pure QR Engine + Smart Excel Data Parser (Exact Excel Display, Multi-Column Support & Live Table Status)
+ * Direct 0-Click Pure QR Engine + Smart Excel Data Parser (Smooth 1-Click Picker & Auto +91 Handling)
  */
 
 const RENDER_CLOUD_URL = 'http://16.16.160.123:3000';
@@ -286,9 +286,7 @@ btnClearMedia.addEventListener('click', () => {
 // EXCEL PARSER & SMART MULTI-COLUMN DATA TABLE PREVIEW
 if (excelDropzone) {
     excelDropzone.addEventListener('click', (e) => {
-        if (!e.target.closest('button') && !e.target.closest('table')) {
-            triggerExcelFilePicker();
-        }
+        triggerExcelFilePicker();
     });
 
     excelDropzone.addEventListener('dragover', (e) => {
@@ -364,14 +362,17 @@ function handleExcelUpload() {
                 let rawPhone = row[phoneIdx] !== undefined && row[phoneIdx] !== null ? String(row[phoneIdx]).trim() : '';
                 let rawName = hasValidNameCol && row[nameIdx] !== undefined && row[nameIdx] !== null ? String(row[nameIdx]).trim() : `Contact ${i}`;
 
-                let cleanPhone = rawPhone.replace(/\D/g, '');
+                let cleanDigits = rawPhone.replace(/\D/g, '');
+                if (cleanDigits.length === 10) {
+                    cleanDigits = `91${cleanDigits}`; // Auto-prefix India country code 91 for 10-digit mobile numbers
+                }
 
-                if (cleanPhone.length >= 10) {
+                if (cleanDigits.length >= 10) {
                     parsedContacts.push({
                         id: i,
                         name: rawName || `Contact ${i}`,
-                        phone: cleanPhone,
-                        rawPhone: rawPhone, // Preserves exact string e.g. +91 99096 66331 or 9909666331
+                        phone: cleanDigits,
+                        rawPhone: rawPhone, // Preserves exact string e.g. +91 99096 66331 or 8094191390
                         status: 'Pending'
                     });
                 }
@@ -430,7 +431,7 @@ function renderExcelPreviewTable(fileName) {
                 <span style="font-size:13px; font-weight:700; color:var(--success);">
                     <i class="fa-solid fa-file-csv"></i> ${fileName} (${parsedContacts.length} Contacts)
                 </span>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="triggerExcelFilePicker()">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); triggerExcelFilePicker();">
                     <i class="fa-solid fa-rotate"></i> Change File
                 </button>
             </div>
