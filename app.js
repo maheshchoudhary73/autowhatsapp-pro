@@ -1,21 +1,19 @@
 /**
- * AutoWhatsApp Pro - Professional All-In-One Dashboard Controller with Dual Login & Privacy Masking
+ * AutoWhatsApp Pro - Official Cloud Backend Controller with AWS EC2 Server IP
  */
 
-// PC Local IP: 10.182.25.108 (Auto-detected for Physical Mobile Device Testing)
-const PC_IP_URL = 'http://10.182.25.108:3000';
+// Official AWS Cloud Server IP
+const RENDER_CLOUD_URL = 'http://16.16.160.123:3000';
 
-let socketHost = PC_IP_URL;
+let socketHost = RENDER_CLOUD_URL;
 if (window.location.protocol.startsWith('http') && !window.location.origin.includes('file://')) {
     socketHost = window.location.origin;
-} else if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    socketHost = 'http://localhost:3000';
 }
 
 const socket = io(socketHost, { 
     reconnection: true, 
     reconnectionDelay: 1000, 
-    timeout: 5000,
+    timeout: 10000,
     transports: ['websocket', 'polling']
 });
 
@@ -92,11 +90,11 @@ const terminalLogs = document.getElementById('terminalLogs');
 
 // Socket Listeners
 socket.on('connect', () => {
-    console.log('✅ Socket connected to', socketHost);
+    console.log('✅ Socket connected to AWS Server:', socketHost);
     appendTerminalLog({
         type: 'success',
         timestamp: new Date().toLocaleTimeString(),
-        text: `✅ Connected to PC Server (${socketHost})`
+        text: `✅ Connected to 24/7 AWS Server (${socketHost})`
     });
 });
 
@@ -297,7 +295,23 @@ function renderAccountsUI(accounts) {
         `;
     });
 
+    // Save existing input values before re-render
+    const existingInputValues = {};
+    accounts.forEach(acc => {
+        const el = document.getElementById(`phone-input-${acc.id}`);
+        if (el) existingInputValues[acc.id] = el.value;
+    });
+
     accountsGrid.innerHTML = html;
+
+    // Restore existing input values after re-render
+    accounts.forEach(acc => {
+        const el = document.getElementById(`phone-input-${acc.id}`);
+        if (el && existingInputValues[acc.id] !== undefined) {
+            el.value = existingInputValues[acc.id];
+        }
+    });
+
     selectSpecificAcc.innerHTML = specificOptionsHtml || '<option value="">No Accounts Connected</option>';
     ratioInputsGrid.innerHTML = ratioInputsHtml || '<p style="font-size:11px; color:var(--text-muted);">Connect WhatsApp accounts to set custom quotas.</p>';
 
@@ -646,7 +660,8 @@ btnExportReport.addEventListener('click', () => {
 });
 
 function appendTerminalLog(log) {
-    const line = document.className = `log-line ${log.type || 'info'}`;
+    const line = document.createElement('div');
+    line.className = `log-line ${log.type || 'info'}`;
     line.textContent = `[${log.timestamp || new Date().toLocaleTimeString()}] ${log.text}`;
     terminalLogs.appendChild(line);
     terminalLogs.scrollTop = terminalLogs.scrollHeight;
