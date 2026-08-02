@@ -162,26 +162,39 @@ if (btnGoogleLogin) {
 }
 
 
-// EMAIL SIGN IN / SIGN UP
+// EMAIL SIGN IN / SIGN UP WITH AUTOMATIC HYBRID FALLBACK
 if (btnEmailLogin) {
     btnEmailLogin.addEventListener('click', () => {
-        const email = authEmailInput.value.trim();
-        const password = authPasswordInput.value.trim();
+        const email = authEmailInput ? authEmailInput.value.trim() : '';
+        const password = authPasswordInput ? authPasswordInput.value.trim() : '';
         if (!email || !password) {
             alert('Please enter your email address and password!');
             return;
         }
+        btnEmailLogin.disabled = true;
+        btnEmailLogin.innerText = 'Signing In...';
+
         firebase.auth().signInWithEmailAndPassword(email, password).catch(err => {
-            alert('Sign-In failed: ' + err.message);
+            if (err.code === 'auth/user-not-found') {
+                // Auto create account if user doesn't exist yet!
+                firebase.auth().createUserWithEmailAndPassword(email, password).catch(cErr => {
+                    alert('Account Error: ' + cErr.message);
+                    btnEmailLogin.disabled = false;
+                    btnEmailLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+                });
+            } else {
+                alert('Sign-In Error: ' + err.message);
+                btnEmailLogin.disabled = false;
+                btnEmailLogin.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In';
+            }
         });
     });
 }
 
-
 if (btnEmailSignup) {
     btnEmailSignup.addEventListener('click', () => {
-        const email = authEmailInput.value.trim();
-        const password = authPasswordInput.value.trim();
+        const email = authEmailInput ? authEmailInput.value.trim() : '';
+        const password = authPasswordInput ? authPasswordInput.value.trim() : '';
         if (!email || !password) {
             alert('Please enter your email address and password!');
             return;
@@ -190,13 +203,44 @@ if (btnEmailSignup) {
             alert('Password should be at least 6 characters long!');
             return;
         }
-        firebase.auth().createUserWithEmailAndPassword(email, password).then(res => {
-            alert('Account created successfully! Welcome to AutoWhatsApp Pro SaaS.');
-        }).catch(err => {
-            alert('Registration failed: ' + err.message);
+        btnEmailSignup.disabled = true;
+        btnEmailSignup.innerText = 'Creating Account...';
+
+        firebase.auth().createUserWithEmailAndPassword(email, password).catch(err => {
+            if (err.code === 'auth/email-already-in-use') {
+                // Auto sign in if account already exists!
+                firebase.auth().signInWithEmailAndPassword(email, password).catch(sErr => {
+                    alert('Sign-In Error: ' + sErr.message);
+                    btnEmailSignup.disabled = false;
+                    btnEmailSignup.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account';
+                });
+            } else {
+                alert('Registration Error: ' + err.message);
+                btnEmailSignup.disabled = false;
+                btnEmailSignup.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account';
+            }
         });
     });
 }
+
+// INSTANT 1-CLICK GUEST ACCESS
+const btnGuestLogin = document.getElementById('btn-guest-login');
+if (btnGuestLogin) {
+    btnGuestLogin.addEventListener('click', () => {
+        btnGuestLogin.disabled = true;
+        btnGuestLogin.innerText = 'Connecting Guest Access...';
+        const guestEmail = 'guest_' + Math.floor(Math.random() * 1000000) + '@autowhatsapp.com';
+        const guestPass = 'guest123456';
+        firebase.auth().createUserWithEmailAndPassword(guestEmail, guestPass).catch(err => {
+            firebase.auth().signInWithEmailAndPassword(guestEmail, guestPass).catch(gErr => {
+                alert('Guest login error: ' + gErr.message);
+                btnGuestLogin.disabled = false;
+                btnGuestLogin.innerHTML = '<i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access';
+            });
+        });
+    });
+}
+
 
 if (btnUserLogout) {
     btnUserLogout.addEventListener('click', () => {
@@ -233,8 +277,6 @@ function initUserSocket(user) {
         renderAccounts(accounts);
     });
 
-    socket.on('user_quota_info', (quota) => {
-        if (quota) {
     let currentUserQuota = null;
 
     socket.on('user_quota_info', (quota) => {
