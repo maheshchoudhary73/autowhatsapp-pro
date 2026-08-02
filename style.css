@@ -1049,6 +1049,10 @@ body {
     }
 }
 
+.hidden {
+    display: none !important;
+}
+
 /* FIREBASE SAAS AUTH MODAL OVERLAY */
 .auth-overlay {
     position: fixed;
@@ -1064,6 +1068,11 @@ body {
     justify-content: center;
     padding: 16px;
 }
+
+.auth-overlay.hidden {
+    display: none !important;
+}
+
 
 .auth-card {
     background: var(--card-bg);

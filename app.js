@@ -82,17 +82,24 @@ const SPEED_CAPS = {
 // LANDING & AUTH MODAL HELPERS
 function openAuthModal(mode = 'login') {
     const modal = document.getElementById('saas-auth-overlay');
-    if (modal) modal.classList.remove('hidden');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
 }
 
 function closeAuthModal() {
     const modal = document.getElementById('saas-auth-overlay');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
 }
 
 function scrollToPricingSection() {
     const landingSec = document.getElementById('pricing-sec');
-    if (landingSec && !document.getElementById('saas-landing-page').classList.contains('hidden')) {
+    const landingWrapper = document.getElementById('saas-landing-page');
+    if (landingSec && landingWrapper && !landingWrapper.classList.contains('hidden')) {
         landingSec.scrollIntoView({ behavior: 'smooth' });
     } else {
         openPricingModal();
@@ -119,7 +126,7 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             if (sidebarUserAvatar) sidebarUserAvatar.src = avatarUrl;
 
             if (saasLandingPage) saasLandingPage.classList.add('hidden');
-            if (saasAuthOverlay) saasAuthOverlay.classList.add('hidden');
+            if (saasAuthOverlay) closeAuthModal();
             if (mainAppContainer) mainAppContainer.classList.remove('hidden');
 
             // Connect Isolated Socket for User
@@ -128,7 +135,7 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
         } else {
             currentUser = null;
             if (saasLandingPage) saasLandingPage.classList.remove('hidden');
-            if (saasAuthOverlay) saasAuthOverlay.classList.add('hidden');
+            if (saasAuthOverlay) closeAuthModal();
             if (mainAppContainer) mainAppContainer.classList.add('hidden');
             if (socket) {
                 socket.disconnect();
@@ -137,22 +144,23 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
     });
 }
 
-// GOOGLE SIGN IN (WITH POPUP & FALLBACK)
+// GOOGLE SIGN IN (WITH POPUP & REDIRECT FALLBACK)
 if (btnGoogleLogin) {
     btnGoogleLogin.addEventListener('click', () => {
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            alert('Firebase Auth SDK loading... Please wait 2 seconds and try again.');
+            return;
+        }
         const provider = new firebase.auth.GoogleAuthProvider();
         firebase.auth().signInWithPopup(provider).catch(err => {
-            console.error('Google Sign-In Popup Error:', err);
-            if (err.code === 'auth/popup-blocked' || err.code === 'auth/unauthorized-domain') {
-                firebase.auth().signInWithRedirect(provider).catch(rErr => {
-                    alert('Google Sign-In Error: ' + rErr.message + '\nPlease use Email Sign-In below.');
-                });
-            } else {
-                alert('Google Sign-In Note: ' + err.message + '\nTip: You can also use Email & Password below to sign in instantly!');
-            }
+            console.warn('Google Sign-In Popup Error, retrying redirect:', err);
+            firebase.auth().signInWithRedirect(provider).catch(rErr => {
+                alert('Google Sign-In Note: ' + rErr.message + '\nTip: You can use Email & Password below to sign in or create an account instantly!');
+            });
         });
     });
 }
+
 
 // EMAIL SIGN IN / SIGN UP
 if (btnEmailLogin) {
