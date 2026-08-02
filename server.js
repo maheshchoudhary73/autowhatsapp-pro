@@ -121,34 +121,71 @@ function savePendingPayments(data) {
     } catch (e) {}
 }
 
-// Admin Route to View All Pending UTR Submissions
-app.get('/api/admin/pending-payments', (req, res) => {
+// HTML Admin Web Dashboard UI
+app.get('/admin', (req, res) => {
     const secret = req.query.secret;
-    if (secret !== 'admin123') return res.status(403).json({ error: 'Unauthorized' });
-    res.json(loadPendingPayments());
-});
-
-// Admin Route to Approve UTR & Upgrade User
-app.get('/api/admin/approve-utr', (req, res) => {
-    const { utr, secret } = req.query;
-    if (secret !== 'admin123') return res.status(403).json({ error: 'Unauthorized' });
+    if (secret !== 'admin123') return res.status(403).send('<h1>🔒 403 Forbidden: Invalid Secret Key</h1><p>Usage: /admin?secret=admin123</p>');
     
     const payData = loadPendingPayments();
-    const payment = payData.payments.find(p => p.utrNumber === utr);
-    if (!payment) return res.status(404).json({ error: 'UTR payment submission not found' });
+    const payments = payData.payments || [];
+    
+    let rowsHtml = payments.map((p, idx) => `
+        <tr style="border-bottom:1px solid #334155;">
+            <td style="padding:12px;">${idx + 1}</td>
+            <td style="padding:12px; font-weight:bold;">${p.email || p.uid}</td>
+            <td style="padding:12px; color:#00f2fe;">${p.plan} (${p.duration || '1M'})</td>
+            <td style="padding:12px; color:#10b981; font-weight:bold;">${p.price}</td>
+            <td style="padding:12px; font-family:monospace; background:rgba(255,255,255,0.05);">${p.utrNumber}</td>
+            <td style="padding:12px; font-size:12px; color:#94a3b8;">${new Date(p.timestamp).toLocaleString()}</td>
+            <td style="padding:12px;">
+                ${p.status === 'APPROVED' 
+                    ? '<span style="color:#10b981; font-weight:bold;">✅ APPROVED</span>' 
+                    : `<a href="/api/admin/approve-utr?utr=${p.utrNumber}&secret=admin123" style="background:#25d366; color:#000; padding:6px 14px; border-radius:6px; font-weight:bold; text-decoration:none; display:inline-block;">✅ Approve Plan</a>`}
+            </td>
+        </tr>
+    `).join('');
 
-    payment.status = 'APPROVED';
-    savePendingPayments(payData);
-
-    // Upgrade User Quota
-    const data = loadUserQuotas();
-    if (data.users[payment.uid]) {
-        data.users[payment.uid].plan = payment.plan || 'PRO';
-        saveUserQuotas(data);
+    if (payments.length === 0) {
+        rowsHtml = `<tr><td colspan="7" style="padding:30px; text-align:center; color:#94a3b8;">No UTR payment submissions found yet.</td></tr>`;
     }
 
-    res.send(`<h1>✅ Success! UTR ${utr} Approved for User ${payment.email} (${payment.plan}). Account is now ACTIVE!</h1>`);
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>AutoWhatsApp Pro - Admin Payment Control Center</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { background:#090d16; color:#f8fafc; font-family:sans-serif; padding:30px; }
+                .card { background:#151c2c; border:1px solid rgba(255,255,255,0.1); border-radius:14px; padding:24px; max-width:1100px; margin:0 auto; }
+                table { width:100%; border-collapse:collapse; text-align:left; margin-top:20px; }
+                th { padding:12px; border-bottom:2px solid #334155; color:#00f2fe; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h2>👑 AutoWhatsApp Pro - Admin UTR Payment Verification Center</h2>
+                <p style="color:#94a3b8; font-size:14px;">Review 12-digit UTR numbers submitted by users and click "Approve Plan" to instantly activate their PRO SaaS account.</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>User Email</th>
+                            <th>Selected Plan</th>
+                            <th>Amount</th>
+                            <th>12-Digit UTR No.</th>
+                            <th>Date & Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        </body>
+        </html>
+    `);
 });
+
 
 
 // User-Isolated WhatsApp Engines Store: userId -> WhatsAppEngine instance
