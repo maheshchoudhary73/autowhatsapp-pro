@@ -334,6 +334,12 @@ function initUserSocket(user) {
         }
     });
 
+                    sidebarPlanBadge.style.color = 'var(--accent)';
+                }
+            }
+        }
+    });
+
 
     socket.on('campaign_progress', (data) => {
         const { sent, pending, failed } = data;

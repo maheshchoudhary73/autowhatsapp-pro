@@ -58,13 +58,14 @@
         };
 
         window.openPricingModal = function() {
+            console.log('openPricingModal triggered directly');
             var modal = document.getElementById('saas-pricing-modal');
             if (modal) {
                 modal.classList.remove('hidden');
                 modal.style.setProperty('display', 'flex', 'important');
-                modal.style.visibility = 'visible';
-                modal.style.opacity = '1';
-                modal.style.zIndex = '999999';
+                modal.style.setProperty('visibility', 'visible', 'important');
+                modal.style.setProperty('opacity', '1', 'important');
+                modal.style.setProperty('z-index', '9999999', 'important');
             }
         };
 
@@ -75,6 +76,7 @@
                 modal.style.setProperty('display', 'none', 'important');
             }
         };
+
 
         window.switchDuration = function(dur) {
             window.currentSelectedDuration = dur;
@@ -115,7 +117,7 @@
 
             window.closePricingModal();
 
-            if (typeof currentUser === 'undefined' || !currentUser) {
+            if (typeof window.currentUser === 'undefined' || !window.currentUser) {
                 window.openAuthModal('signup');
                 return;
             }
@@ -162,7 +164,7 @@
         };
 
         window.addNewTemplateTab = function() {
-            var isPaid = (typeof currentUserQuota !== 'undefined' && currentUserQuota && currentUserQuota.plan && currentUserQuota.plan !== 'FREE' && currentUserQuota.plan !== 'FREE_EXPIRED');
+            var isPaid = (typeof window.currentUserQuota !== 'undefined' && window.currentUserQuota && window.currentUserQuota.plan && window.currentUserQuota.plan !== 'FREE' && window.currentUserQuota.plan !== 'FREE_EXPIRED');
             var maxAllowed = isPaid ? 10 : 2;
 
             if (window.totalTemplatesCount >= maxAllowed) {
@@ -257,10 +259,6 @@
                 if (btnStart) btnStart.disabled = false;
             }
         };
-
-
-
-
 
         window.scrollToPricingSection = function() {
             var landingSec = document.getElementById('pricing-sec');
@@ -494,7 +492,6 @@
                 </button>
             </div>
 
-
             <!-- DURATION TOGGLE SWITCHER -->
             <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:10px; margin-bottom:24px;">
                 <button type="button" class="btn btn-secondary duration-btn active" data-duration="1M" onclick="switchDuration('1M')">1 Month</button>
@@ -632,10 +629,9 @@
 
             <!-- USER SAAS PROFILE & UPGRADE HEADER -->
             <div class="user-header-profile" id="user-header-profile">
-                <button type="button" class="btn btn-primary btn-sm" onclick="window.openPricingModal()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 12px rgba(245,158,11,0.3);">
+                <button type="button" class="btn btn-primary btn-sm" onclick="scrollToPricingSection()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 12px rgba(245,158,11,0.3);">
                     <i class="fa-solid fa-crown"></i> Upgrade Plan
                 </button>
-
 
                 <div class="user-info-box">
                     <img src="https://ui-avatars.com/api/?name=User" id="user-avatar-img" class="user-avatar" alt="Avatar">
@@ -778,10 +774,11 @@
                         <div class="form-group">
                             <div class="flex-between" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                                 <label class="form-label" style="margin:0;">📝 1. Campaign Message Templates (Anti-Spam Auto-Rotation)</label>
-                                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-template" onclick="addNewTemplateTab()" style="background:rgba(37,211,102,0.15); border:1px solid var(--primary); color:var(--primary); font-weight:700; cursor:pointer;">
-                                    ➕ Add More Template (Max 10)
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-add-template" onclick="window.addNewTemplateTab()" style="background:rgba(37,211,102,0.15); border:1px solid var(--primary); color:var(--primary); font-weight:700; cursor:pointer;">
+                                    ➕ Add Another Message Template
                                 </button>
                             </div>
+
 
                             <div class="tags-row" style="margin-top:8px;">
                                 <span class="tag-chip" onclick="insertTag('{Name}')">+ {Name}</span>
@@ -952,9 +949,10 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                             📊 Daily Usage: <span id="quota-used-msgs">0</span> / <span id="quota-max-msgs">50</span> msgs today
                         </div>
                         
-                        <button type="button" class="btn btn-primary full-btn" onclick="scrollToPricingSection()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 14px rgba(245,158,11,0.4); margin-top:6px; font-weight:800;">
+                        <button type="button" class="btn btn-primary full-btn" onclick="window.openPricingModal()" style="background:linear-gradient(135deg, #f59e0b, #d97706); box-shadow:0 4px 14px rgba(245,158,11,0.4); margin-top:6px; font-weight:800;">
                             <i class="fa-solid fa-crown"></i> Upgrade to PRO Plan
                         </button>
+
                     </div>
                 </div>
             </div>
