@@ -379,14 +379,15 @@ io.on('connection', (socket) => {
         try {
             const adminMsg = `🚨 *NEW PAYMENT UTR RECEIVED* 🚨\n\n👤 *User Email:* ${utrPayload.email}\n📦 *Plan:* ${utrPayload.plan} (${utrPayload.duration})\n💰 *Amount:* ${utrPayload.price}\n🔢 *UTR Number:* ${utrPayload.utrNumber}\n\n👉 *Click to Approve Plan:* http://16.16.160.123:3000/api/admin/approve-utr?utr=${utrPayload.utrNumber}&secret=admin123`;
             
-            const activeAccs = waEngine.getActiveAccounts();
-            if (activeAccs.length > 0) {
-                const accId = activeAccs[0].id;
-                waEngine.sendMessage(accId, '917340216019@c.us', adminMsg);
+            const connectedAccs = waEngine.getConnectedAccountIds();
+            if (connectedAccs.length > 0) {
+                const accId = connectedAccs[0];
+                waEngine.sendMessageFrom(accId, '917340216019@s.whatsapp.net', adminMsg);
             }
         } catch (e) {
             console.error('Error sending WhatsApp admin alert:', e.message);
         }
+
     });
 
     // Real-Time Event Listener bound to User Room
