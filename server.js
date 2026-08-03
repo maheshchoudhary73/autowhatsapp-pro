@@ -338,8 +338,9 @@ io.on('connection', (socket) => {
 
     console.log(`[SaaS Socket] User connected: ${uid} (${email}) | Socket: ${socket.id}`);
 
-    const waEngine = getUserEngine(uid);
-    const queueMgr = getUserQueueManager(uid);
+    // Join User Room for isolated real-time socket broadcasting
+    const userRoom = `user_${uid}`;
+    socket.join(userRoom);
 
     // Send User Quota Info & Account State on Connect
     const userQuota = getUserQuotaRecord(uid, email);
@@ -365,7 +366,6 @@ io.on('connection', (socket) => {
         try {
             const adminMsg = `🚨 *NEW PAYMENT UTR RECEIVED* 🚨\n\n👤 *User Email:* ${utrPayload.email}\n📦 *Plan:* ${utrPayload.plan} (${utrPayload.duration})\n💰 *Amount:* ${utrPayload.price}\n🔢 *UTR Number:* ${utrPayload.utrNumber}\n\n👉 *Click to Approve Plan:* http://16.16.160.123:3000/api/admin/approve-utr?utr=${utrPayload.utrNumber}&secret=admin123`;
             
-            // Try sending via active engine accounts
             const activeAccs = waEngine.getActiveAccounts();
             if (activeAccs.length > 0) {
                 const accId = activeAccs[0].id;
@@ -376,19 +376,16 @@ io.on('connection', (socket) => {
         }
     });
 
-
-
-    if (!waEngine._hasAccountsUpdateListener) {
-        waEngine.setOnAccountsUpdate((accounts) => {
-            socket.emit('accounts_update', accounts);
-        });
-        waEngine.setOnAutoReplyLog((logData) => {
-            socket.emit('auto_reply_log', logData);
-        });
-        waEngine._hasAccountsUpdateListener = true;
-    }
+    // Real-Time Event Listener bound to User Room
+    waEngine.setOnAccountsUpdate((accounts) => {
+        io.to(userRoom).emit('accounts_update', accounts);
+    });
+    waEngine.setOnAutoReplyLog((logData) => {
+        io.to(userRoom).emit('auto_reply_log', logData);
+    });
 
     socket.emit('accounts_update', waEngine.getAccountsState());
+
 
 
 
@@ -510,23 +507,24 @@ io.on('connection', (socket) => {
                 // Track usage on successful send
                 incrementUserSentCount(uid, 1);
                 const updatedQuota = getUserQuotaRecord(uid, email);
-                socket.emit('user_quota_info', updatedQuota);
+                io.to(userRoom).emit('user_quota_info', updatedQuota);
 
                 return { success: true };
             },
 
             {
                 onProgress: (progressData) => {
-                    socket.emit('campaign_progress', progressData);
+                    io.to(userRoom).emit('campaign_progress', progressData);
                 },
                 onLog: (logEntry) => {
-                    socket.emit('campaign_log', logEntry);
+                    io.to(userRoom).emit('campaign_log', logEntry);
                 },
                 onFinish: (summary) => {
-                    socket.emit('campaign_finished', summary);
+                    io.to(userRoom).emit('campaign_finished', summary);
                 }
             }
         );
+
     });
 
     socket.on('pause_campaign', () => queueMgr.pause());
