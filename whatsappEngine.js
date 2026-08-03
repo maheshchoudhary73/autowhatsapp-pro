@@ -176,16 +176,15 @@ class WhatsAppEngine {
                     const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                     console.log(`[Baileys Pure Engine] ${accId} Connection closed (StatusCode: ${statusCode}). Reconnecting: ${shouldReconnect}`);
 
-                    if (shouldReconnect && accData.status !== 'CONNECTED') {
+                    if (shouldReconnect) {
                         accData.status = 'INITIALIZING';
                         this.broadcastState();
-                        await delay(2000);
-                        if (this.accounts.has(accId) && this.accounts.get(accId).status !== 'CONNECTED') {
-                            await this.createAccountInstance(accId);
-                        }
-                    } else if (!shouldReconnect) {
-                        console.log(`[Baileys Pure Engine] ${accId} Logged out cleanly.`);
+                        setTimeout(() => {
+                            this.createAccountInstance(accId);
+                        }, 2000);
+                    } else {
                         accData.status = 'DISCONNECTED';
+                        accData.sock = null;
                         accData.userInfo = null;
                         accData.qrCodeDataUrl = null;
                         this.broadcastState();
