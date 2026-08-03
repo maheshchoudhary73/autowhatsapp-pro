@@ -129,6 +129,7 @@
             window.closePricingModal();
 
             var isUserLoggedIn = (window.currentUser && (window.currentUser.email || window.currentUser.uid)) || (typeof currentUser !== 'undefined' && currentUser && (currentUser.email || currentUser.uid));
+
             if (!isUserLoggedIn) {
                 window.pendingSelectedPlan = planName;
                 window.pendingSelectedPriceId = priceElemId;
@@ -140,21 +141,41 @@
             var upiModal = document.getElementById('upi-payment-modal');
             if (upiModal) {
                 upiModal.classList.remove('hidden');
-                upiModal.style.setProperty('display', 'flex', 'important');
-                upiModal.style.setProperty('visibility', 'visible', 'important');
-                upiModal.style.setProperty('opacity', '1', 'important');
-                upiModal.style.setProperty('z-index', '9999999', 'important');
+                upiModal.setAttribute('style', 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 99999999 !important;');
             }
         };
-
-
 
         window.closePaymentModal = function() {
             var upiModal = document.getElementById('upi-payment-modal');
             if (upiModal) {
                 upiModal.classList.add('hidden');
-                upiModal.style.setProperty('display', 'none', 'important');
+                upiModal.setAttribute('style', 'display: none !important;');
             }
+        };
+
+        window.handleGoogleLogin = function() {
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                return;
+            }
+            var btn = document.getElementById('btn-google-login');
+            if (btn) { btn.disabled = true; btn.innerText = 'Connecting Google Account...'; }
+
+            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
+                var provider = new firebase.auth.GoogleAuthProvider();
+                firebase.auth().signInWithPopup(provider).then(function(result) {
+                    console.log('Google Popup Login Successful:', result.user.email);
+                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                }).catch(function(err) {
+                    console.warn('Google Sign-In Notice:', err);
+                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                    // NO BROWSER ALERT POPUPS! Smooth, clean inline status
+                    var statusNotice = document.getElementById('auth-status-notice');
+                    if (statusNotice) {
+                        statusNotice.innerText = 'Google Popup Notice: Please choose your Google account or use Email / Guest Access below.';
+                        statusNotice.style.display = 'block';
+                    }
+                });
+            });
         };
 
         window.activeTemplateTab = 1;
