@@ -501,6 +501,7 @@ io.on('connection', (socket) => {
         const template = payload.messageTemplate || payload.template || '';
         const mediaObj = payload.mediaObj || null;
         const autoReplyRules = payload.autoReplyRules || [];
+        const settings = payload.settings || {};
 
         waEngine.setAutoReplyRules(autoReplyRules);
 
@@ -513,6 +514,7 @@ io.on('connection', (socket) => {
 
         const templates = payload.templates && payload.templates.length > 0 ? payload.templates : [template];
         queueMgr.loadCampaign(contacts, template, settings, routingConfig, mediaObj, autoReplyRules, templates);
+
 
         queueMgr.start(
             async (accId, phoneJid, messageText, mediaItem) => {
