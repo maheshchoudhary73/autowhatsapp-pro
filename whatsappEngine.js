@@ -321,7 +321,8 @@ class WhatsAppEngine {
         if (digits.length === 10) {
             digits = `91${digits}`; // Auto-add India country code 91 for 10-digit mobile numbers
         }
-        let cleanJid = recipientJid.includes('@') ? recipientJid : `${digits}@s.whatsapp.net`;
+        let cleanJid = `${digits}@s.whatsapp.net`;
+
 
         return new Promise(async (resolve, reject) => {
             const timer = setTimeout(() => {
