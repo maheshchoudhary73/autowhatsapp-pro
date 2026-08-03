@@ -340,9 +340,10 @@ class QueueManager {
             this.emitProgress();
         }
 
-        const delayMs = this.calculateDynamicDelayMs();
+        const delayMs = (this.stats.sent === 0) ? 100 : this.calculateDynamicDelayMs();
         this.scheduleNext(delayMs);
     }
+
 
     scheduleNext(delayMs) {
         if (this.currentTimeout) clearTimeout(this.currentTimeout);
