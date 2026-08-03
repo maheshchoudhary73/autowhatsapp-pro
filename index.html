@@ -114,15 +114,15 @@
         window.pendingSelectedDurId = null;
 
         window.openPaymentModal = function(planName, priceElemId, durElemId) {
-            window.currentSelectedPlan = planName;
+            window.currentSelectedPlan = planName || 'Starter';
             var priceEl = document.getElementById(priceElemId);
             var durEl = document.getElementById(durElemId);
             var priceVal = priceEl ? priceEl.innerText : '₹299';
             var durVal = durEl ? durEl.innerText : '/ month';
-            window.currentSelectedPrice = priceVal + ' ' + (durEl ? durEl.innerText : window.currentSelectedDuration);
+            window.currentSelectedPrice = priceVal + ' ' + (durEl ? durEl.innerText : (window.currentSelectedDuration || '/ month'));
 
             var planLabel = document.getElementById('modal-selected-plan');
-            if (planLabel) planLabel.innerText = planName + ' (' + window.currentSelectedDuration + ')';
+            if (planLabel) planLabel.innerText = window.currentSelectedPlan + ' (' + (window.currentSelectedDuration || '1M') + ')';
             var priceLabel = document.getElementById('modal-selected-price');
             if (priceLabel) priceLabel.innerText = window.currentSelectedPrice;
 
@@ -131,7 +131,7 @@
             var isUserLoggedIn = (window.currentUser && (window.currentUser.email || window.currentUser.uid)) || (typeof currentUser !== 'undefined' && currentUser && (currentUser.email || currentUser.uid));
 
             if (!isUserLoggedIn) {
-                window.pendingSelectedPlan = planName;
+                window.pendingSelectedPlan = window.currentSelectedPlan;
                 window.pendingSelectedPriceId = priceElemId;
                 window.pendingSelectedDurId = durElemId;
                 window.openAuthModal('signup');
@@ -141,7 +141,7 @@
             var upiModal = document.getElementById('upi-payment-modal');
             if (upiModal) {
                 upiModal.classList.remove('hidden');
-                upiModal.setAttribute('style', 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 99999999 !important;');
+                upiModal.style.cssText = 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 99999999 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(5,8,17,0.92) !important;';
             }
         };
 
@@ -149,9 +149,22 @@
             var upiModal = document.getElementById('upi-payment-modal');
             if (upiModal) {
                 upiModal.classList.add('hidden');
-                upiModal.setAttribute('style', 'display: none !important;');
+                upiModal.style.cssText = 'display: none !important;';
             }
         };
+
+        // GLOBAL GUARANTEED EVENT DELEGATION FOR ALL SUBSCRIBE BUTTONS
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('button');
+            if (btn && btn.innerText && btn.innerText.includes('Subscribe')) {
+                e.preventDefault();
+                var txt = btn.innerText.trim();
+                if (txt.includes('Basic')) window.openPaymentModal('Basic ⭐', 'price-basic', 'dur-basic');
+                else if (txt.includes('Business')) window.openPaymentModal('Business 👑', 'price-business', 'dur-business');
+                else window.openPaymentModal('Starter', 'price-starter', 'dur-starter');
+            }
+        });
+
 
         window.handleGoogleLogin = function() {
             if (typeof firebase === 'undefined' || !firebase.auth) {
