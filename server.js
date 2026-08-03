@@ -566,9 +566,10 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Start HTTP Server
-server.listen(PORT, () => {
+// Start HTTP Server (Explicitly bind to 0.0.0.0 for AWS Public IPv4 Access)
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
-    console.log(`🚀 AutoWhatsApp Pro SaaS Server running on port ${PORT}`);
+    console.log(`🚀 AutoWhatsApp Pro SaaS Server running on 0.0.0.0:${PORT}`);
     console.log(`====================================================`);
 });
+
