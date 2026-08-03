@@ -347,13 +347,17 @@ io.on('connection', (socket) => {
 
     console.log(`[SaaS Socket] User connected: ${uid} (${email}) | Socket: ${socket.id}`);
 
-    // Join User Room for isolated real-time socket broadcasting
     const userRoom = `user_${uid}`;
     socket.join(userRoom);
+
+    const waEngine = getUserEngine(uid);
+    const queueMgr = getUserQueueManager(uid);
 
     // Send User Quota Info & Account State on Connect
     const userQuota = getUserQuotaRecord(uid, email);
     socket.emit('user_quota_info', userQuota);
+    socket.emit('accounts_update', waEngine.getAccountsState());
+
 
     // Socket Listener for UTR Payment Submissions
     socket.on('submit_utr_payment', (utrPayload) => {
