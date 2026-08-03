@@ -93,14 +93,21 @@
             if (rates) {
                 var ps = document.getElementById('price-starter'); if (ps) ps.innerText = rates.starter;
                 var ds = document.getElementById('dur-starter'); if (ds) ds.innerText = rates.durLabel;
+                var cps = document.getElementById('card-price-starter'); if (cps) cps.innerText = rates.starter;
+                var cds = document.getElementById('card-dur-starter'); if (cds) cds.innerText = rates.durLabel;
 
                 var pb = document.getElementById('price-basic'); if (pb) pb.innerText = rates.basic;
                 var db = document.getElementById('dur-basic'); if (db) db.innerText = rates.durLabel;
+                var cpb = document.getElementById('card-price-basic'); if (cpb) cpb.innerText = rates.basic;
+                var cdb = document.getElementById('card-dur-basic'); if (cdb) cdb.innerText = rates.durLabel;
 
                 var pbiz = document.getElementById('price-business'); if (pbiz) pbiz.innerText = rates.business;
                 var dbiz = document.getElementById('dur-business'); if (dbiz) dbiz.innerText = rates.durLabel;
+                var cpbiz = document.getElementById('card-price-business'); if (cpbiz) cpbiz.innerText = rates.business;
+                var cdbiz = document.getElementById('card-dur-business'); if (cdbiz) cdbiz.innerText = rates.durLabel;
             }
         };
+
 
         window.pendingSelectedPlan = null;
         window.pendingSelectedPriceId = null;
@@ -121,22 +128,13 @@
 
             window.closePricingModal();
 
-            var isUserLoggedIn = (window.currentUser && (window.currentUser.email || window.currentUser.uid)) || (typeof currentUser !== 'undefined' && currentUser && (currentUser.email || currentUser.uid));
-
-            if (!isUserLoggedIn) {
-                window.pendingSelectedPlan = window.currentSelectedPlan;
-                window.pendingSelectedPriceId = priceElemId;
-                window.pendingSelectedDurId = durElemId;
-                window.openAuthModal('signup');
-                return;
-            }
-
             var upiModal = document.getElementById('upi-payment-modal');
             if (upiModal) {
                 upiModal.classList.remove('hidden');
-                upiModal.style.cssText = 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 99999999 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(5,8,17,0.92) !important;';
+                upiModal.style.cssText = 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 99999999 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(5,8,17,0.95) !important;';
             }
         };
+
 
         window.closePaymentModal = function() {
             var upiModal = document.getElementById('upi-payment-modal');
@@ -174,6 +172,7 @@
                 }).catch(function(err) {
                     console.warn('Google Sign-In Notice:', err);
                     if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                    // NO BROWSER ALERT POPUPS! Smooth, clean inline status
                     var statusNotice = document.getElementById('auth-status-notice');
                     if (statusNotice) {
                         statusNotice.innerText = 'Google Popup Notice: Please choose your Google account or use Email / Guest Access below.';
@@ -181,16 +180,6 @@
                     }
                 });
             });
-        };
-
-
-
-        window.closePaymentModal = function() {
-            var upiModal = document.getElementById('upi-payment-modal');
-            if (upiModal) {
-                upiModal.classList.add('hidden');
-                upiModal.style.setProperty('display', 'none', 'important');
-            }
         };
 
         window.activeTemplateTab = 1;
@@ -217,7 +206,7 @@
         };
 
         window.addNewTemplateTab = function() {
-            var isPaid = (typeof window.currentUserQuota !== 'undefined' && window.currentUserQuota && window.currentUserQuota.plan && window.currentUserQuota.plan !== 'FREE' && window.currentUserQuota.plan !== 'FREE_EXPIRED');
+            var isPaid = (typeof currentUserQuota !== 'undefined' && currentUserQuota && currentUserQuota.plan && currentUserQuota.plan !== 'FREE' && currentUserQuota.plan !== 'FREE_EXPIRED');
             var maxAllowed = isPaid ? 10 : 2;
 
             if (window.totalTemplatesCount >= maxAllowed) {
@@ -313,6 +302,141 @@
             }
         };
 
+
+
+
+
+        window.handleGoogleLogin = function() {
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+            var btn = document.getElementById('btn-google-login');
+            if (btn) { btn.disabled = true; btn.innerText = 'Connecting Google Account...'; }
+
+            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
+                var provider = new firebase.auth.GoogleAuthProvider();
+                firebase.auth().signInWithPopup(provider).then(function(result) {
+                    console.log('Google Popup Login Successful:', result.user.email);
+                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                }).catch(function(err) {
+                    console.warn('Google Sign-In Error:', err);
+                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+                        return;
+                    }
+                    alert('Google Sign-In Notice: ' + (err.message || 'Please choose your Google account in the popup.'));
+                });
+            });
+        };
+
+
+
+
+
+        window.handleEmailLogin = function() {
+            var emailEl = document.getElementById('auth-email');
+            var passEl = document.getElementById('auth-password');
+            var email = emailEl ? emailEl.value.trim() : '';
+            var password = passEl ? passEl.value.trim() : '';
+
+            if (!email || !password) {
+                alert('Please enter your Email Address and Password!');
+                return;
+            }
+
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+
+            var btn = document.getElementById('btn-email-login');
+            if (btn) { btn.disabled = true; btn.innerText = 'Signing In...'; }
+
+            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
+                firebase.auth().signInWithEmailAndPassword(email, password).catch(function(err) {
+                    if (err.code === 'auth/user-not-found') {
+                        firebase.auth().createUserWithEmailAndPassword(email, password).catch(function(cErr) {
+                            alert('Account Error: ' + cErr.message);
+                            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In'; }
+                        });
+                    } else {
+                        alert('Sign-In Error: ' + err.message);
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In'; }
+                    }
+                });
+            });
+        };
+
+        window.handleEmailSignup = function() {
+            var emailEl = document.getElementById('auth-email');
+            var passEl = document.getElementById('auth-password');
+            var email = emailEl ? emailEl.value.trim() : '';
+            var password = passEl ? passEl.value.trim() : '';
+
+            if (!email || !password) {
+                alert('Please enter your Email Address and Password!');
+                return;
+            }
+            if (password.length < 6) {
+                alert('Password must be at least 6 characters long!');
+                return;
+            }
+
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+
+            var btn = document.getElementById('btn-email-signup');
+            if (btn) { btn.disabled = true; btn.innerText = 'Creating Account...'; }
+
+            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
+                firebase.auth().createUserWithEmailAndPassword(email, password).catch(function(err) {
+                    if (err.code === 'auth/email-already-in-use') {
+                        firebase.auth().signInWithEmailAndPassword(email, password).catch(function(sErr) {
+                            alert('Sign-In Error: ' + sErr.message);
+                            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account'; }
+                        });
+                    } else {
+                        alert('Registration Error: ' + err.message);
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account'; }
+                    }
+                });
+            });
+        };
+
+        window.handleGuestLogin = function() {
+            if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please wait 2 seconds.');
+                return;
+            }
+
+            var guestBtn = document.getElementById('btn-guest-login');
+            if (guestBtn) {
+                guestBtn.disabled = true;
+                guestBtn.innerText = 'Connecting Guest Access...';
+            }
+
+            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
+                var guestEmail = 'user_' + Math.floor(Math.random() * 100000) + '@autowhatsapp.com';
+                var guestPass = 'pass123456';
+
+                firebase.auth().createUserWithEmailAndPassword(guestEmail, guestPass).then(function(userCred) {
+                    console.log('Guest session created:', userCred.user.email);
+                }).catch(function(err) {
+                    firebase.auth().signInWithEmailAndPassword(guestEmail, guestPass).catch(function(gErr) {
+                        alert('Login note: ' + gErr.message);
+                        if (guestBtn) {
+                            guestBtn.disabled = false;
+                            guestBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access';
+                        }
+                    });
+                });
+            });
+        };
+
+
         window.scrollToPricingSection = function() {
             var landingSec = document.getElementById('pricing-sec');
             var landingWrapper = document.getElementById('saas-landing-page');
@@ -323,6 +447,7 @@
             }
         };
     </script>
+
 </head>
 
 <body>
@@ -338,7 +463,6 @@
             </div>
 
             <div class="landing-nav-links">
-                <a href="#features-sec">Features</a>
                 <a href="#pricing-sec">Pricing Plans</a>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">
                     <i class="fa-solid fa-right-to-bracket"></i> Sign In
@@ -347,6 +471,7 @@
                     <i class="fa-solid fa-rocket"></i> Get Started Free
                 </button>
             </div>
+
         </nav>
 
         <!-- HERO BANNER SECTION -->
@@ -526,138 +651,9 @@
                         <i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access
                     </button>
                 </div>
-                <script>
-        window.handleGoogleLogin = function() {
-            if (typeof firebase === 'undefined' || !firebase.auth) {
-                alert('Firebase Auth is loading... Please wait 2 seconds.');
-                return;
-            }
-            var btn = document.getElementById('btn-google-login');
-            if (btn) { btn.disabled = true; btn.innerText = 'Connecting Google Account...'; }
-
-            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
-                var provider = new firebase.auth.GoogleAuthProvider();
-                firebase.auth().signInWithPopup(provider).then(function(result) {
-                    console.log('Google Popup Login Successful:', result.user.email);
-                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
-                }).catch(function(err) {
-                    console.warn('Google Sign-In Error:', err);
-                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
-                    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
-                        return;
-                    }
-                    alert('Google Sign-In Notice: ' + (err.message || 'Please choose your Google account in the popup.'));
-                });
-            });
-        };
-
-
-
-
-        window.handleEmailLogin = function() {
-            var emailEl = document.getElementById('auth-email');
-            var passEl = document.getElementById('auth-password');
-            var email = emailEl ? emailEl.value.trim() : '';
-            var password = passEl ? passEl.value.trim() : '';
-
-            if (!email || !password) {
-                alert('Please enter your Email Address and Password!');
-                return;
-            }
-
-            if (typeof firebase === 'undefined' || !firebase.auth) {
-                alert('Firebase Auth is loading... Please wait 2 seconds.');
-                return;
-            }
-
-            var btn = document.getElementById('btn-email-login');
-            if (btn) { btn.disabled = true; btn.innerText = 'Signing In...'; }
-
-            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
-                firebase.auth().signInWithEmailAndPassword(email, password).catch(function(err) {
-                    if (err.code === 'auth/user-not-found') {
-                        firebase.auth().createUserWithEmailAndPassword(email, password).catch(function(cErr) {
-                            alert('Account Error: ' + cErr.message);
-                            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In'; }
-                        });
-                    } else {
-                        alert('Sign-In Error: ' + err.message);
-                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Sign In'; }
-                    }
-                });
-            });
-        };
-
-        window.handleEmailSignup = function() {
-            var emailEl = document.getElementById('auth-email');
-            var passEl = document.getElementById('auth-password');
-            var email = emailEl ? emailEl.value.trim() : '';
-            var password = passEl ? passEl.value.trim() : '';
-
-            if (!email || !password) {
-                alert('Please enter your Email Address and Password!');
-                return;
-            }
-            if (password.length < 6) {
-                alert('Password must be at least 6 characters long!');
-                return;
-            }
-
-            if (typeof firebase === 'undefined' || !firebase.auth) {
-                alert('Firebase Auth is loading... Please wait 2 seconds.');
-                return;
-            }
-
-            var btn = document.getElementById('btn-email-signup');
-            if (btn) { btn.disabled = true; btn.innerText = 'Creating Account...'; }
-
-            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
-                firebase.auth().createUserWithEmailAndPassword(email, password).catch(function(err) {
-                    if (err.code === 'auth/email-already-in-use') {
-                        firebase.auth().signInWithEmailAndPassword(email, password).catch(function(sErr) {
-                            alert('Sign-In Error: ' + sErr.message);
-                            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account'; }
-                        });
-                    } else {
-                        alert('Registration Error: ' + err.message);
-                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Create New Account'; }
-                    }
-                });
-            });
-        };
-
-        window.handleGuestLogin = function() {
-            if (typeof firebase === 'undefined' || !firebase.auth) {
-                alert('Firebase Auth is loading... Please wait 2 seconds.');
-                return;
-            }
-
-            var guestBtn = document.getElementById('btn-guest-login');
-            if (guestBtn) {
-                guestBtn.disabled = true;
-                guestBtn.innerText = 'Connecting Guest Access...';
-            }
-
-            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
-                var guestEmail = 'user_' + Math.floor(Math.random() * 100000) + '@autowhatsapp.com';
-                var guestPass = 'pass123456';
-
-                firebase.auth().createUserWithEmailAndPassword(guestEmail, guestPass).then(function(userCred) {
-                    console.log('Guest session created:', userCred.user.email);
-                }).catch(function(err) {
-                    firebase.auth().signInWithEmailAndPassword(guestEmail, guestPass).catch(function(gErr) {
-                        alert('Login note: ' + gErr.message);
-                        if (guestBtn) {
-                            guestBtn.disabled = false;
-                            guestBtn.innerHTML = '<i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access';
-                        }
-                    });
-                });
-            });
-        };
-                </script>
 
             </form>
+
 
             <div class="auth-footer-text">
                 🔒 100% Encrypted & Private. Your WhatsApp accounts are strictly isolated.
@@ -674,6 +670,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
+
 
             <!-- DURATION TOGGLE SWITCHER -->
             <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:10px; margin-bottom:24px;">
@@ -823,6 +820,7 @@
                     <i class="fa-solid fa-right-from-bracket"></i> Logout
                 </button>
             </div>
+
         </header>
 
         <!-- STATS OVERVIEW CARDS -->
