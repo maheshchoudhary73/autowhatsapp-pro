@@ -9,8 +9,9 @@ const { Server } = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 
-const WhatsAppEngine = require('./whatsappEngine');
+const WhatsAppEngine = require('./WhatsAppEngine');
 const QueueManager = require('./QueueManager');
+
 
 const app = express();
 const server = http.createServer(app);
@@ -22,7 +23,16 @@ const io = new Server(server, {
     maxHttpBufferSize: 1e8
 });
 
+process.on('uncaughtException', (err) => {
+    console.error('[CRITICAL] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL] Unhandled Rejection:', reason);
+});
+
 const PORT = process.env.PORT || 3000;
+
 const QUOTAS_FILE = path.join(__dirname, 'user_quotas.json');
 
 // Helper to load user quotas database
@@ -367,20 +377,18 @@ io.on('connection', (socket) => {
 
 
 
-// SINGLETON GLOBAL WAENGINE BROADCASTERS (Prevents listener stacking loop on socket reconnect)
-waEngine.setOnAccountsUpdate((accounts) => {
-    io.emit('accounts_update', accounts);
-});
-
-waEngine.setOnAutoReplyLog((logData) => {
-    io.emit('auto_reply_log', logData);
-});
-
-io.on('connection', (socket) => {
-    const uid = socket.handshake.auth?.uid || 'guest_' + socket.id;
-    const email = socket.handshake.auth?.email || '';
+    if (!waEngine._hasAccountsUpdateListener) {
+        waEngine.setOnAccountsUpdate((accounts) => {
+            socket.emit('accounts_update', accounts);
+        });
+        waEngine.setOnAutoReplyLog((logData) => {
+            socket.emit('auto_reply_log', logData);
+        });
+        waEngine._hasAccountsUpdateListener = true;
+    }
 
     socket.emit('accounts_update', waEngine.getAccountsState());
+
 
 
     // Event: Request Fresh QR Code for Specific Account Slot
