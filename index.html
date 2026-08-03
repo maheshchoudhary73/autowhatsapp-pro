@@ -93,14 +93,21 @@
             if (rates) {
                 var ps = document.getElementById('price-starter'); if (ps) ps.innerText = rates.starter;
                 var ds = document.getElementById('dur-starter'); if (ds) ds.innerText = rates.durLabel;
+                var cps = document.getElementById('card-price-starter'); if (cps) cps.innerText = rates.starter;
+                var cds = document.getElementById('card-dur-starter'); if (cds) cds.innerText = rates.durLabel;
 
                 var pb = document.getElementById('price-basic'); if (pb) pb.innerText = rates.basic;
                 var db = document.getElementById('dur-basic'); if (db) db.innerText = rates.durLabel;
+                var cpb = document.getElementById('card-price-basic'); if (cpb) cpb.innerText = rates.basic;
+                var cdb = document.getElementById('card-dur-basic'); if (cdb) cdb.innerText = rates.durLabel;
 
                 var pbiz = document.getElementById('price-business'); if (pbiz) pbiz.innerText = rates.business;
                 var dbiz = document.getElementById('dur-business'); if (dbiz) dbiz.innerText = rates.durLabel;
+                var cpbiz = document.getElementById('card-price-business'); if (cpbiz) cpbiz.innerText = rates.business;
+                var cdbiz = document.getElementById('card-dur-business'); if (cdbiz) cdbiz.innerText = rates.durLabel;
             }
         };
+
 
         window.pendingSelectedPlan = null;
         window.pendingSelectedPriceId = null;
@@ -218,15 +225,6 @@
         };
 
 
-
-        window.closePaymentModal = function() {
-            var upiModal = document.getElementById('upi-payment-modal');
-            if (upiModal) {
-                upiModal.classList.add('hidden');
-                upiModal.style.setProperty('display', 'none', 'important');
-            }
-        };
-
         window.activeTemplateTab = 1;
         window.totalTemplatesCount = 1;
 
@@ -251,7 +249,7 @@
         };
 
         window.addNewTemplateTab = function() {
-            var isPaid = (typeof window.currentUserQuota !== 'undefined' && window.currentUserQuota && window.currentUserQuota.plan && window.currentUserQuota.plan !== 'FREE' && window.currentUserQuota.plan !== 'FREE_EXPIRED');
+            var isPaid = (typeof currentUserQuota !== 'undefined' && currentUserQuota && currentUserQuota.plan && currentUserQuota.plan !== 'FREE' && currentUserQuota.plan !== 'FREE_EXPIRED');
             var maxAllowed = isPaid ? 10 : 2;
 
             if (window.totalTemplatesCount >= maxAllowed) {
@@ -347,220 +345,10 @@
             }
         };
 
-        window.scrollToPricingSection = function() {
-            var landingSec = document.getElementById('pricing-sec');
-            var landingWrapper = document.getElementById('saas-landing-page');
-            if (landingSec && landingWrapper && !landingWrapper.classList.contains('hidden')) {
-                landingSec.scrollIntoView({ behavior: 'smooth' });
-            } else {
-                window.openPricingModal();
-            }
-        };
-    </script>
-</head>
 
-<body>
 
-    <!-- PUBLIC SAAS LANDING PAGE (VISIBLE WHEN NOT LOGGED IN) -->
-    <div id="saas-landing-page" class="landing-page-wrapper">
-        
-        <!-- LANDING HEADER NAVBAR -->
-        <nav class="landing-navbar">
-            <div class="landing-brand">
-                <div class="logo-icon"><i class="fa-brands fa-whatsapp"></i></div>
-                <h1 class="logo-title">AutoWhatsApp <span class="logo-pro">Pro</span></h1>
-            </div>
 
-            <div class="landing-nav-links">
-                <a href="#features-sec">Features</a>
-                <a href="#pricing-sec">Pricing Plans</a>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">
-                    <i class="fa-solid fa-right-to-bracket"></i> Sign In
-                </button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="openAuthModal('signup')">
-                    <i class="fa-solid fa-rocket"></i> Get Started Free
-                </button>
-            </div>
-        </nav>
 
-        <!-- HERO BANNER SECTION -->
-        <section class="hero-section">
-            <div class="hero-badge">
-                <span>⚡ 24/7 Cloud Automation Engine</span>
-                <span class="badge-tag">7-Day Free Trial</span>
-            </div>
-            
-            <h1 class="hero-title">
-                Automate Your WhatsApp Marketing <br>
-                <span class="gradient-text">At Scale With Zero Hassle</span>
-            </h1>
-
-            <p class="hero-subtitle">
-                Send 15,000+ personalized messages daily with multi-account round-robin dispatch, 
-                smart Excel auto-uploader, media attachments, and 24/7 cloud execution.
-            </p>
-
-            <div class="hero-cta-group">
-                <button type="button" class="btn btn-primary btn-lg" onclick="openAuthModal('signup')">
-                    <i class="fa-solid fa-bolt"></i> Start 7-Day Free Trial (50 Msgs/Day)
-                </button>
-                <a href="#pricing-sec" class="btn btn-secondary btn-lg">
-                    <i class="fa-solid fa-tags"></i> View All Pricing Plans
-                </a>
-            </div>
-
-            <div class="hero-features-strip">
-                <div class="strip-item"><i class="fa-solid fa-shield-check" style="color:var(--primary);"></i> 100% Isolated Sessions</div>
-                <div class="strip-item"><i class="fa-solid fa-layer-group" style="color:var(--accent);"></i> Up to 20 WhatsApp Accounts</div>
-                <div class="strip-item"><i class="fa-solid fa-cloud-bolt" style="color:var(--warning);"></i> 24/7 Cloud Execution</div>
-            </div>
-        </section>
-
-        <!-- FULL 3-PLAN PRICING SECTION ON HOMEPAGE -->
-        <section class="landing-pricing-section" id="pricing-sec">
-            <div class="sec-header">
-                <span class="sec-tag">PRICING PLANS</span>
-                <h2>Choose the Right Plan for Your Business</h2>
-                <p>Flexible monthly and long-term plans designed for creators, shops, and enterprise agencies.</p>
-            </div>
-
-            <!-- DURATION TOGGLE SWITCHER -->
-            <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:10px; margin-bottom:30px;">
-                <button type="button" class="btn btn-secondary duration-btn active" data-duration="1M" onclick="switchDuration('1M')">1 Month</button>
-                <button type="button" class="btn btn-secondary duration-btn" data-duration="3M" onclick="switchDuration('3M')">3 Months</button>
-                <button type="button" class="btn btn-secondary duration-btn" data-duration="6M" onclick="switchDuration('6M')">6 Months</button>
-            </div>
-
-            <!-- 3-PLAN PRICING CARDS GRID -->
-            <div class="pricing-cards-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; max-width:1100px; margin:0 auto;">
-                
-                <!-- STARTER PLAN -->
-                <div class="glass-card plan-card" style="border:1px solid rgba(0,242,254,0.3); padding:24px; position:relative; text-align:left;">
-                    <h3 style="font-size:20px; font-weight:800; color:var(--text-main);">Starter Plan</h3>
-                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Ideal for small shops & starters</div>
-                    
-                    <div class="plan-price-display" style="font-size:36px; font-weight:800; color:var(--accent); margin:16px 0;">
-                        <span id="price-starter">₹299</span> <span style="font-size:13px; font-weight:500; color:var(--text-muted);" id="dur-starter">/ month</span>
-                    </div>
-
-                    <ul style="list-style:none; font-size:13px; display:flex; flex-direction:column; gap:10px; margin-bottom:20px; color:var(--text-main);">
-                        <li>✅ <strong>2 WhatsApp Accounts</strong></li>
-                        <li>📊 Safe Daily Limit: 400 / acc</li>
-                        <li>⚡ Max Daily Capacity: <strong>700 msgs/day</strong></li>
-                        <li>📷 Image, Video & PDF Support</li>
-                        <li>🛡️ 100% Session Privacy</li>
-                    </ul>
-
-                    <button type="button" class="btn btn-primary full-btn" onclick="openPaymentModal('Starter', 'price-starter', 'dur-starter')">
-                        Subscribe Starter Plan
-                    </button>
-                </div>
-
-                <!-- BASIC PLAN ⭐ -->
-                <div class="glass-card plan-card popular" style="border:2px solid var(--primary); padding:24px; position:relative; text-align:left; background:rgba(37,211,102,0.06);">
-                    <div style="position:absolute; top:-14px; right:20px; background:var(--primary); color:#000; font-size:11px; font-weight:800; padding:4px 12px; border-radius:12px;">⭐ MOST POPULAR</div>
-                    <h3 style="font-size:20px; font-weight:800; color:var(--primary);">Basic Plan ⭐</h3>
-                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Ideal for growing businesses</div>
-                    
-                    <div class="plan-price-display" style="font-size:36px; font-weight:800; color:var(--primary); margin:16px 0;">
-                        <span id="price-basic">₹999</span> <span style="font-size:13px; font-weight:500; color:var(--text-muted);" id="dur-basic">/ month</span>
-                    </div>
-
-                    <ul style="list-style:none; font-size:13px; display:flex; flex-direction:column; gap:10px; margin-bottom:20px; color:var(--text-main);">
-                        <li>✅ <strong>5 WhatsApp Accounts</strong></li>
-                        <li>📊 Safe Daily Limit: 900 / acc</li>
-                        <li>⚡ Max Daily Capacity: <strong>3,500 msgs/day</strong></li>
-                        <li>✨ Multi-Sender Round-Robin</li>
-                        <li>🚀 Priority Dispatch Speed</li>
-                    </ul>
-
-                    <button type="button" class="btn btn-success full-btn" onclick="openPaymentModal('Basic ⭐', 'price-basic', 'dur-basic')">
-                        Subscribe Basic Plan
-                    </button>
-                </div>
-
-                <!-- BUSINESS PLAN 👑 -->
-                <div class="glass-card plan-card" style="border:1px solid rgba(245,158,11,0.5); padding:24px; position:relative; text-align:left; background:rgba(245,158,11,0.04);">
-                    <h3 style="font-size:20px; font-weight:800; color:var(--warning);">Business Plan 👑</h3>
-                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">For agencies & high volume</div>
-                    
-                    <div class="plan-price-display" style="font-size:36px; font-weight:800; color:var(--warning); margin:16px 0;">
-                        <span id="price-business">₹2,999</span> <span style="font-size:13px; font-weight:500; color:var(--text-muted);" id="dur-business">/ month</span>
-                    </div>
-
-                    <ul style="list-style:none; font-size:13px; display:flex; flex-direction:column; gap:10px; margin-bottom:20px; color:var(--text-main);">
-                        <li>✅ <strong>20 WhatsApp Accounts</strong></li>
-                        <li>📊 Safe Daily Limit: 1,500 / acc</li>
-                        <li>⚡ Max Daily Capacity: <strong>15,000 msgs/day</strong></li>
-                        <li>🚀 Speed Cap: 600 msgs/min</li>
-                        <li>👑 Dedicated Priority Support</li>
-                    </ul>
-
-                    <button type="button" class="btn btn-primary full-btn" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="openPaymentModal('Business 👑', 'price-business', 'dur-business')">
-                        Subscribe Business Plan
-                    </button>
-                </div>
-
-            </div>
-        </section>
-
-        <!-- FOOTER -->
-        <footer class="landing-footer">
-            <div style="font-size:13px; color:var(--text-muted);">
-                © 2026 AutoWhatsApp Pro. 100% Encrypted Cloud Platform. All rights reserved.
-            </div>
-            <div style="margin-top:10px; display:flex; gap:16px; justify-content:center;">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">Sign In</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="openAuthModal('signup')">Create Free Account</button>
-            </div>
-        </footer>
-    </div>
-
-    <!-- FIREBASE SAAS AUTHENTICATION MODAL OVERLAY -->
-    <div class="auth-overlay hidden" id="saas-auth-overlay" style="display:none !important;" onclick="if(event.target === this) window.closeAuthModal();">
-        <div class="auth-card">
-            <div class="flex-between" style="margin-bottom: 14px;">
-                <div class="auth-brand" style="margin-bottom:0;">
-                    <h3 style="font-size: 18px; font-weight: 800;"><i class="fa-brands fa-whatsapp" style="color:var(--primary);"></i> Account Access</h3>
-                </div>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="window.closeAuthModal()">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-
-            <!-- GOOGLE ONE-CLICK SIGN IN -->
-            <button type="button" class="btn-google-auth" id="btn-google-login" onclick="handleGoogleLogin()">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-                <span>Continue with Google</span>
-            </button>
-
-            <div class="auth-divider">
-                <span>OR SIGN IN WITH EMAIL</span>
-            </div>
-
-            <!-- EMAIL & PASSWORD AUTH FORM -->
-            <form id="auth-email-form" onsubmit="return false;">
-                <div class="form-group" style="text-align:left;">
-                    <label class="form-label">Email Address</label>
-                    <input type="email" id="auth-email" class="form-input" placeholder="name@example.com" required>
-                </div>
-                <div class="form-group" style="text-align:left; margin-top:10px;">
-                    <label class="form-label">Password</label>
-                    <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required>
-                </div>
-
-                <div class="auth-actions-row" style="margin-top:16px;">
-                    <button type="button" class="btn btn-primary full-btn" id="btn-email-login" onclick="handleEmailLogin()">
-                        <i class="fa-solid fa-right-to-bracket"></i> Sign In
-                    </button>
-                    <button type="button" class="btn btn-secondary full-btn" id="btn-email-signup" onclick="handleEmailSignup()" style="margin-top:8px;">
-                        <i class="fa-solid fa-user-plus"></i> Create New Account
-                    </button>
-                    <button type="button" class="btn full-btn" id="btn-guest-login" onclick="handleGuestLogin()" style="margin-top:8px; background:rgba(0,242,254,0.15); color:var(--accent); border:1px solid rgba(0,242,254,0.3); font-weight:700;">
-                        <i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access
-                    </button>
-                </div>
-                <script>
         window.handleGoogleLogin = function() {
             if (typeof firebase === 'undefined' || !firebase.auth) {
                 alert('Firebase Auth is loading... Please wait 2 seconds.');
@@ -584,6 +372,7 @@
                 });
             });
         };
+
 
 
 
@@ -689,9 +478,226 @@
                 });
             });
         };
-                </script>
+
+
+        window.scrollToPricingSection = function() {
+            var landingSec = document.getElementById('pricing-sec');
+            var landingWrapper = document.getElementById('saas-landing-page');
+            if (landingSec && landingWrapper && !landingWrapper.classList.contains('hidden')) {
+                landingSec.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                window.openPricingModal();
+            }
+        };
+    </script>
+
+</head>
+
+<body>
+
+    <!-- PUBLIC SAAS LANDING PAGE (VISIBLE WHEN NOT LOGGED IN) -->
+    <div id="saas-landing-page" class="landing-page-wrapper">
+        
+        <!-- LANDING HEADER NAVBAR -->
+        <nav class="landing-navbar">
+            <div class="landing-brand">
+                <div class="logo-icon"><i class="fa-brands fa-whatsapp"></i></div>
+                <h1 class="logo-title">AutoWhatsApp <span class="logo-pro">Pro</span></h1>
+            </div>
+
+            <div class="landing-nav-links">
+                <a href="#pricing-sec">Pricing Plans</a>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                </button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openAuthModal('signup')">
+                    <i class="fa-solid fa-rocket"></i> Get Started Free
+                </button>
+            </div>
+
+        </nav>
+
+        <!-- HERO BANNER SECTION -->
+        <section class="hero-section">
+            <div class="hero-badge">
+                <span>⚡ 24/7 Cloud Automation Engine</span>
+                <span class="badge-tag">7-Day Free Trial</span>
+            </div>
+            
+            <h1 class="hero-title">
+                Automate Your WhatsApp Marketing <br>
+                <span class="gradient-text">At Scale With Zero Hassle</span>
+            </h1>
+
+            <p class="hero-subtitle">
+                Send 15,000+ personalized messages daily with multi-account round-robin dispatch, 
+                smart Excel auto-uploader, media attachments, and 24/7 cloud execution.
+            </p>
+
+            <div class="hero-cta-group">
+                <button type="button" class="btn btn-primary btn-lg" onclick="openAuthModal('signup')">
+                    <i class="fa-solid fa-bolt"></i> Start 7-Day Free Trial (50 Msgs/Day)
+                </button>
+                <a href="#pricing-sec" class="btn btn-secondary btn-lg">
+                    <i class="fa-solid fa-tags"></i> View All Pricing Plans
+                </a>
+            </div>
+
+            <div class="hero-features-strip">
+                <div class="strip-item"><i class="fa-solid fa-shield-check" style="color:var(--primary);"></i> 100% Isolated Sessions</div>
+                <div class="strip-item"><i class="fa-solid fa-layer-group" style="color:var(--accent);"></i> Up to 20 WhatsApp Accounts</div>
+                <div class="strip-item"><i class="fa-solid fa-cloud-bolt" style="color:var(--warning);"></i> 24/7 Cloud Execution</div>
+            </div>
+        </section>
+
+        <!-- FULL 3-PLAN PRICING SECTION ON HOMEPAGE -->
+        <section class="landing-pricing-section" id="pricing-sec">
+            <div class="sec-header">
+                <span class="sec-tag">PRICING PLANS</span>
+                <h2>Choose the Right Plan for Your Business</h2>
+                <p>Flexible monthly and long-term plans designed for creators, shops, and enterprise agencies.</p>
+            </div>
+
+            <!-- DURATION TOGGLE SWITCHER -->
+            <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:10px; margin-bottom:30px;">
+                <button type="button" class="btn btn-secondary duration-btn active" data-duration="1M" onclick="switchDuration('1M')">1 Month</button>
+                <button type="button" class="btn btn-secondary duration-btn" data-duration="3M" onclick="switchDuration('3M')">3 Months</button>
+                <button type="button" class="btn btn-secondary duration-btn" data-duration="6M" onclick="switchDuration('6M')">6 Months</button>
+            </div>
+
+            <!-- 3-PLAN PRICING CARDS GRID -->
+            <div class="pricing-cards-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px; max-width:1100px; margin:0 auto;">
+                
+                <!-- STARTER PLAN -->
+                <div class="glass-card plan-card" style="border:1px solid rgba(0,242,254,0.3); padding:24px; position:relative; text-align:left;">
+                    <h3 style="font-size:20px; font-weight:800; color:var(--text-main);">Starter Plan</h3>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Ideal for small shops & starters</div>
+                    
+                    <div class="plan-price-display" style="font-size:36px; font-weight:800; color:var(--accent); margin:16px 0;">
+                        <span id="price-starter">₹299</span> <span style="font-size:13px; font-weight:500; color:var(--text-muted);" id="dur-starter">/ month</span>
+                    </div>
+
+                    <ul style="list-style:none; font-size:13px; display:flex; flex-direction:column; gap:10px; margin-bottom:20px; color:var(--text-main);">
+                        <li>✅ <strong>2 WhatsApp Accounts</strong></li>
+                        <li>📊 Safe Daily Limit: 400 / acc</li>
+                        <li>⚡ Max Daily Capacity: <strong>700 msgs/day</strong></li>
+                        <li>📷 Image, Video & PDF Support</li>
+                        <li>🛡️ 100% Session Privacy</li>
+                    </ul>
+
+                    <button type="button" class="btn btn-primary full-btn" onclick="handleSubscribeClick('Starter', 'price-starter', 'dur-starter')">
+                        Subscribe Starter Plan
+                    </button>
+                </div>
+
+                <!-- BASIC PLAN ⭐ -->
+                <div class="glass-card plan-card popular" style="border:2px solid var(--primary); padding:24px; position:relative; text-align:left; background:rgba(37,211,102,0.06);">
+                    <div style="position:absolute; top:-14px; right:20px; background:var(--primary); color:#000; font-size:11px; font-weight:800; padding:4px 12px; border-radius:12px;">⭐ MOST POPULAR</div>
+                    <h3 style="font-size:20px; font-weight:800; color:var(--primary);">Basic Plan ⭐</h3>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Ideal for growing businesses</div>
+                    
+                    <div class="plan-price-display" style="font-size:36px; font-weight:800; color:var(--primary); margin:16px 0;">
+                        <span id="price-basic">₹999</span> <span style="font-size:13px; font-weight:500; color:var(--text-muted);" id="dur-basic">/ month</span>
+                    </div>
+
+                    <ul style="list-style:none; font-size:13px; display:flex; flex-direction:column; gap:10px; margin-bottom:20px; color:var(--text-main);">
+                        <li>✅ <strong>5 WhatsApp Accounts</strong></li>
+                        <li>📊 Safe Daily Limit: 900 / acc</li>
+                        <li>⚡ Max Daily Capacity: <strong>3,500 msgs/day</strong></li>
+                        <li>✨ Multi-Sender Round-Robin</li>
+                        <li>🚀 Priority Dispatch Speed</li>
+                    </ul>
+
+                    <button type="button" class="btn btn-success full-btn" onclick="handleSubscribeClick('Basic ⭐', 'price-basic', 'dur-basic')">
+                        Subscribe Basic Plan
+                    </button>
+                </div>
+
+                <!-- BUSINESS PLAN 👑 -->
+                <div class="glass-card plan-card" style="border:1px solid rgba(245,158,11,0.5); padding:24px; position:relative; text-align:left; background:rgba(245,158,11,0.04);">
+                    <h3 style="font-size:20px; font-weight:800; color:var(--warning);">Business Plan 👑</h3>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">For agencies & high volume</div>
+                    
+                    <div class="plan-price-display" style="font-size:36px; font-weight:800; color:var(--warning); margin:16px 0;">
+                        <span id="price-business">₹2,999</span> <span style="font-size:13px; font-weight:500; color:var(--text-muted);" id="dur-business">/ month</span>
+                    </div>
+
+                    <ul style="list-style:none; font-size:13px; display:flex; flex-direction:column; gap:10px; margin-bottom:20px; color:var(--text-main);">
+                        <li>✅ <strong>20 WhatsApp Accounts</strong></li>
+                        <li>📊 Safe Daily Limit: 1,500 / acc</li>
+                        <li>⚡ Max Daily Capacity: <strong>15,000 msgs/day</strong></li>
+                        <li>🚀 Speed Cap: 600 msgs/min</li>
+                        <li>👑 Dedicated Priority Support</li>
+                    </ul>
+
+                    <button type="button" class="btn btn-primary full-btn" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="handleSubscribeClick('Business 👑', 'price-business', 'dur-business')">
+                        Subscribe Business Plan
+                    </button>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="landing-footer">
+            <div style="font-size:13px; color:var(--text-muted);">
+                © 2026 AutoWhatsApp Pro. 100% Encrypted Cloud Platform. All rights reserved.
+            </div>
+            <div style="margin-top:10px; display:flex; gap:16px; justify-content:center;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openAuthModal('login')">Sign In</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="openAuthModal('signup')">Create Free Account</button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- FIREBASE SAAS AUTHENTICATION MODAL OVERLAY -->
+    <div class="auth-overlay hidden" id="saas-auth-overlay" style="display:none !important;" onclick="if(event.target === this) window.closeAuthModal();">
+        <div class="auth-card">
+            <div class="flex-between" style="margin-bottom: 14px;">
+                <div class="auth-brand" style="margin-bottom:0;">
+                    <h3 style="font-size: 18px; font-weight: 800;"><i class="fa-brands fa-whatsapp" style="color:var(--primary);"></i> Account Access</h3>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="window.closeAuthModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- GOOGLE ONE-CLICK SIGN IN -->
+            <button type="button" class="btn-google-auth" id="btn-google-login" onclick="handleGoogleLogin()">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                <span>Continue with Google</span>
+            </button>
+
+            <div class="auth-divider">
+                <span>OR SIGN IN WITH EMAIL</span>
+            </div>
+
+            <!-- EMAIL & PASSWORD AUTH FORM -->
+            <form id="auth-email-form" onsubmit="return false;">
+                <div class="form-group" style="text-align:left;">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="auth-email" class="form-input" placeholder="name@example.com" required>
+                </div>
+                <div class="form-group" style="text-align:left; margin-top:10px;">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required>
+                </div>
+
+                <div class="auth-actions-row" style="margin-top:16px;">
+                    <button type="button" class="btn btn-primary full-btn" id="btn-email-login" onclick="handleEmailLogin()">
+                        <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                    </button>
+                    <button type="button" class="btn btn-secondary full-btn" id="btn-email-signup" onclick="handleEmailSignup()" style="margin-top:8px;">
+                        <i class="fa-solid fa-user-plus"></i> Create New Account
+                    </button>
+                    <button type="button" class="btn full-btn" id="btn-guest-login" onclick="handleGuestLogin()" style="margin-top:8px; background:rgba(0,242,254,0.15); color:var(--accent); border:1px solid rgba(0,242,254,0.3); font-weight:700;">
+                        <i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access
+                    </button>
+                </div>
 
             </form>
+
 
             <div class="auth-footer-text">
                 🔒 100% Encrypted & Private. Your WhatsApp accounts are strictly isolated.
@@ -708,6 +714,7 @@
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
+
 
             <!-- DURATION TOGGLE SWITCHER -->
             <div class="duration-toggle-bar" style="display:flex; justify-content:center; gap:10px; margin-bottom:24px;">
@@ -732,11 +739,7 @@
                         <li>✅ <strong>2 WhatsApp Accounts</strong></li>
                         <li>📊 Safe Daily Limit: 400 / acc</li>
                         <li>⚡ Max Daily Capacity: <strong>700 msgs/day</strong></li>
-                        <li>📷 Image, Video & PDF Support</li>
-                        <li>🛡️ 100% Session Privacy</li>
-                    </ul>
-
-                    <button type="button" class="btn btn-primary full-btn" onclick="openPaymentModal('Starter', 'mprice-starter', 'mdur-starter')">
+                                       <button type="button" class="btn btn-primary full-btn" onclick="handleSubscribeClick('Starter', 'mprice-starter', 'mdur-starter')">
                         Upgrade to Starter
                     </button>
                 </div>
@@ -759,7 +762,7 @@
                         <li>🚀 Priority Dispatch Speed</li>
                     </ul>
 
-                    <button type="button" class="btn btn-success full-btn" onclick="openPaymentModal('Basic ⭐', 'mprice-basic', 'mdur-basic')">
+                    <button type="button" class="btn btn-success full-btn" onclick="handleSubscribeClick('Basic ⭐', 'mprice-basic', 'mdur-basic')">
                         Upgrade to Basic ⭐
                     </button>
                 </div>
@@ -769,7 +772,7 @@
                     <h3 style="font-size:18px; font-weight:800; color:var(--warning);">Business Plan 👑</h3>
                     <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">For agencies & high volume</div>
                     
-                    <div class="plan-price-display" style="font-size:32px; font-weight:800; color:var(--warning); margin:12px 0;">
+                    <div class="plan-price-display" style="font-size:32px; font-weight:800; color:var(--warning); margin:16px 0;">
                         <span id="mprice-business">₹2,999</span> <span style="font-size:12px; font-weight:500; color:var(--text-muted);" id="mdur-business">/ month</span>
                     </div>
 
@@ -781,7 +784,11 @@
                         <li>👑 Dedicated Priority Support</li>
                     </ul>
 
-                    <button type="button" class="btn btn-primary full-btn" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="openPaymentModal('Business 👑', 'mprice-business', 'mdur-business')">
+                    <button type="button" class="btn btn-primary full-btn" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="handleSubscribeClick('Business 👑', 'mprice-business', 'mdur-business')">
+                        Upgrade to Business 👑
+                    </button>
+                </div>
+);" onclick="openPaymentModal('Business 👑', 'mprice-business', 'mdur-business')">
                         Upgrade to Business 👑
                     </button>
                 </div>
@@ -865,6 +872,7 @@
                     <i class="fa-solid fa-right-from-bracket"></i> Logout
                 </button>
             </div>
+
 
         </header>
 
@@ -1199,7 +1207,7 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                                     <span id="card-price-starter">₹299</span> <span style="font-size:10px; color:var(--text-muted);" id="card-dur-starter">/ month</span>
                                 </div>
                                 <div style="font-size:10px; color:var(--text-main); margin-bottom:8px;">⚡ Max 700 msgs/day</div>
-                                <button type="button" class="btn btn-primary full-btn btn-sm" onclick="openPaymentModal('Starter', 'card-price-starter', 'card-dur-starter')">
+                                <button type="button" class="btn btn-primary full-btn btn-sm" onclick="handleSubscribeClick('Starter', 'card-price-starter', 'card-dur-starter')">
                                     Subscribe Starter
                                 </button>
                             </div>
@@ -1213,7 +1221,7 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                                     <span id="card-price-basic">₹999</span> <span style="font-size:10px; color:var(--text-muted);" id="card-dur-basic">/ month</span>
                                 </div>
                                 <div style="font-size:10px; color:var(--text-main); margin-bottom:8px;">⚡ Max 3,500 msgs/day</div>
-                                <button type="button" class="btn btn-success full-btn btn-sm" onclick="openPaymentModal('Basic ⭐', 'card-price-basic', 'card-dur-basic')">
+                                <button type="button" class="btn btn-success full-btn btn-sm" onclick="handleSubscribeClick('Basic ⭐', 'card-price-basic', 'card-dur-basic')">
                                     Subscribe Basic ⭐
                                 </button>
                             </div>
@@ -1226,10 +1234,11 @@ Reply 1 for Buy Now | Reply HI for Support</textarea>
                                     <span id="card-price-business">₹2,999</span> <span style="font-size:10px; color:var(--text-muted);" id="card-dur-business">/ month</span>
                                 </div>
                                 <div style="font-size:10px; color:var(--text-main); margin-bottom:8px;">⚡ Max 15,000 msgs/day</div>
-                                <button type="button" class="btn btn-primary full-btn btn-sm" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="openPaymentModal('Business 👑', 'card-price-business', 'card-dur-business')">
+                                <button type="button" class="btn btn-primary full-btn btn-sm" style="background:linear-gradient(135deg, #f59e0b, #d97706);" onclick="handleSubscribeClick('Business 👑', 'card-price-business', 'card-dur-business')">
                                     Subscribe Business 👑
                                 </button>
                             </div>
+
 
                         </div>
                     </div>

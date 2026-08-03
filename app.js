@@ -352,7 +352,6 @@ function initUserSocket(user) {
 
 
     socket.on('campaign_progress', (data) => {
-
         const { sent, pending, failed } = data;
         if (sentCountEl) sentCountEl.textContent = sent;
         if (pendingCountEl) pendingCountEl.textContent = pending;
@@ -951,10 +950,16 @@ function switchDuration(dur) {
             const mdurEl = document.getElementById(`mdur-${plan}`);
             if (mpriceEl) mpriceEl.innerText = rates[plan];
             if (mdurEl) mdurEl.innerText = rates[`${plan}Dur`];
+
+            const cpriceEl = document.getElementById(`card-price-${plan}`);
+            const cdurEl = document.getElementById(`card-dur-${plan}`);
+            if (cpriceEl) cpriceEl.innerText = rates[plan];
+            if (cdurEl) cdurEl.innerText = rates[`${plan}Dur`];
         });
     }
 }
 window.switchDuration = switchDuration;
+
 
 
 
