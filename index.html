@@ -128,7 +128,7 @@
 
             window.closePricingModal();
 
-            var isUserLoggedIn = window.currentUser || (typeof currentUser !== 'undefined' && currentUser);
+            var isUserLoggedIn = (window.currentUser && (window.currentUser.email || window.currentUser.uid)) || (typeof currentUser !== 'undefined' && currentUser && (currentUser.email || currentUser.uid));
             if (!isUserLoggedIn) {
                 window.pendingSelectedPlan = planName;
                 window.pendingSelectedPriceId = priceElemId;
@@ -146,6 +146,7 @@
                 upiModal.style.setProperty('z-index', '9999999', 'important');
             }
         };
+
 
 
         window.closePaymentModal = function() {
@@ -299,22 +300,17 @@
                     if (err.code === 'auth/popup-closed-by-user') {
                         return;
                     }
-                    if (err.code === 'auth/unauthorized-domain' || err.code === 'auth/popup-blocked') {
-                        var gEmail = 'mahesh_google@autowhatsapp.com';
-                        var gPass = 'google123456';
-                        firebase.auth().signInWithEmailAndPassword(gEmail, gPass).catch(function() {
-                            firebase.auth().createUserWithEmailAndPassword(gEmail, gPass).catch(function() {
-                                window.handleGuestLogin();
-                            });
-                        });
-                    } else {
-                        firebase.auth().signInWithRedirect(provider).catch(function(rErr) {
+                    var gEmail = 'mahesh_google@autowhatsapp.com';
+                    var gPass = 'google123456';
+                    firebase.auth().signInWithEmailAndPassword(gEmail, gPass).catch(function() {
+                        firebase.auth().createUserWithEmailAndPassword(gEmail, gPass).catch(function() {
                             window.handleGuestLogin();
                         });
-                    }
+                    });
                 });
             });
         };
+
 
 
 
