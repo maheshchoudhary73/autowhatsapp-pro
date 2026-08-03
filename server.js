@@ -375,18 +375,19 @@ io.on('connection', (socket) => {
         });
         savePendingPayments(payData);
 
-        // Send Instant WhatsApp Notification Alert to Admin
+        // Send Instant WhatsApp Notification Alert to Admin Number (8094191390)
         try {
-            const adminMsg = `🚨 *NEW PAYMENT UTR RECEIVED* 🚨\n\n👤 *User Email:* ${utrPayload.email}\n📦 *Plan:* ${utrPayload.plan} (${utrPayload.duration})\n💰 *Amount:* ${utrPayload.price}\n🔢 *UTR Number:* ${utrPayload.utrNumber}\n\n👉 *Click to Approve Plan:* http://16.16.160.123:3000/api/admin/approve-utr?utr=${utrPayload.utrNumber}&secret=admin123`;
+            const adminMsg = `🚨 *NEW PAYMENT UTR RECEIVED* 🚨\n\n👤 *User Email:* ${utrPayload.email}\n📦 *Plan:* ${utrPayload.plan} (${utrPayload.duration || '1M'})\n💰 *Amount:* ${utrPayload.price}\n🔢 *UTR Number:* ${utrPayload.utrNumber}\n\n⚠️ *Please verify UTR receipt on PhonePe/GPay.*`;
             
             const connectedAccs = waEngine.getConnectedAccountIds();
             if (connectedAccs.length > 0) {
                 const accId = connectedAccs[0];
-                waEngine.sendMessageFrom(accId, '917340216019@s.whatsapp.net', adminMsg);
+                waEngine.sendMessageFrom(accId, '918094191390@s.whatsapp.net', adminMsg);
             }
         } catch (e) {
             console.error('Error sending WhatsApp admin alert:', e.message);
         }
+
 
     });
 
