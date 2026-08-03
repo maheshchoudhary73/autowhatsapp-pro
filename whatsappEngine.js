@@ -29,10 +29,21 @@ class WhatsAppEngine {
         this.userId = String(userId).replace(/[^a-zA-Z0-9_-]/g, '_');
         this.maxAccounts = 10;
         this.accounts = new Map(); // accId -> { id, sock, status, qrCodeDataUrl, userInfo }
+        
+        // Pre-populate slot 1 so accounts state is never empty on load
+        this.accounts.set('acc_1', {
+            id: 'acc_1',
+            sock: null,
+            status: 'INITIALIZING',
+            qrCodeDataUrl: null,
+            userInfo: null
+        });
+
         this.autoReplyRules = [];
         this.onAccountsUpdate = null;
         this.onAutoReplyLog = null;
     }
+
 
     setOnAccountsUpdate(fn) {
         this.onAccountsUpdate = fn;
