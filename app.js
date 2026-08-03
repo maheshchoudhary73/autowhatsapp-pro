@@ -350,6 +350,12 @@ function initUserSocket(user) {
         }
     });
 
+                    sidebarPlanBadge.style.color = 'var(--accent)';
+                }
+            }
+        }
+    });
+
 
     socket.on('campaign_progress', (data) => {
         const { sent, pending, failed } = data;
@@ -552,12 +558,14 @@ if (selectRoutingMode) {
 if (btnPickMedia) {
     btnPickMedia.addEventListener('click', () => {
         if (!currentUserQuota || !currentUserQuota.plan || currentUserQuota.plan === 'FREE' || currentUserQuota.plan === 'FREE_EXPIRED') {
+            alert('⚠️ Media Attachments (Images/Videos/PDFs) is a PRO Feature!\n\nPlease upgrade to Starter, Basic, or Business Plan to attach media files.');
             if (window.openPricingModal) window.openPricingModal();
             return;
         }
-        mediaFileInput.click();
+        if (mediaFileInput) mediaFileInput.click();
     });
 }
+
 
 
 
@@ -881,30 +889,27 @@ const PRICING_MATRIX = {
 };
 
 function openPricingModal() {
-    if (window.openPricingModal) {
-        window.openPricingModal();
-    } else {
-        const modal = document.getElementById('saas-pricing-modal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            modal.style.setProperty('display', 'flex', 'important');
-            modal.style.setProperty('visibility', 'visible', 'important');
-            modal.style.setProperty('opacity', '1', 'important');
-            modal.style.setProperty('z-index', '9999999', 'important');
-        }
+    const modal = document.getElementById('saas-pricing-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.cssText = 'display: flex !important; visibility: visible !important; opacity: 1 !important; z-index: 99999999 !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(5,8,17,0.95) !important;';
     }
 }
-
+window.openPricingModal = openPricingModal;
 
 function closePricingModal() {
     const modal = document.getElementById('saas-pricing-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.cssText = 'display: none !important;';
+    }
 }
+window.closePricingModal = closePricingModal;
 
 function switchDuration(dur) {
     currentSelectedDuration = dur;
-    document.querySelectorAll('.duration-btn').forEach(btn => {
-        if (btn.getAttribute('data-duration') === dur) {
+    document.querySelectorAll('.duration-btn, [onclick*="switchDuration"]').forEach(btn => {
+        if (btn.getAttribute('data-duration') === dur || (btn.innerText && btn.innerText.includes(dur === '1M' ? '1' : (dur === '3M' ? '3' : '6')))) {
             btn.classList.add('active');
         } else {
             btn.classList.remove('active');
@@ -913,16 +918,24 @@ function switchDuration(dur) {
 
     const rates = PRICING_MATRIX[dur];
     if (rates) {
-        document.getElementById('price-starter').innerText = rates.starter;
-        document.getElementById('dur-starter').innerText = rates.durLabel;
+        const ps = document.getElementById('price-starter');
+        const ds = document.getElementById('dur-starter');
+        if (ps) ps.innerText = rates.starter;
+        if (ds) ds.innerText = rates.durLabel;
 
-        document.getElementById('price-basic').innerText = rates.basic;
-        document.getElementById('dur-basic').innerText = rates.durLabel;
+        const pb = document.getElementById('price-basic');
+        const db = document.getElementById('dur-basic');
+        if (pb) pb.innerText = rates.basic;
+        if (db) db.innerText = rates.durLabel;
 
-        document.getElementById('price-business').innerText = rates.business;
-        document.getElementById('dur-business').innerText = rates.durLabel;
+        const pbiz = document.getElementById('price-business');
+        const dbiz = document.getElementById('dur-business');
+        if (pbiz) pbiz.innerText = rates.business;
+        if (dbiz) dbiz.innerText = rates.durLabel;
     }
 }
+window.switchDuration = switchDuration;
+
 
 function openPaymentModal(planName, priceElemId, durElemId) {
     currentSelectedPlan = planName || 'Starter';
