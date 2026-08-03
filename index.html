@@ -292,18 +292,30 @@
                 var provider = new firebase.auth.GoogleAuthProvider();
                 firebase.auth().signInWithPopup(provider).then(function(result) {
                     console.log('Google Popup Login Successful:', result.user.email);
+                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
                 }).catch(function(err) {
-                    console.warn('Google HTTP restriction caught, logging in persistent user session:', err);
-                    var gEmail = 'mahesh_google@autowhatsapp.com';
-                    var gPass = 'google123456';
-                    firebase.auth().signInWithEmailAndPassword(gEmail, gPass).catch(function() {
-                        firebase.auth().createUserWithEmailAndPassword(gEmail, gPass).catch(function(cErr) {
+                    console.warn('Google Sign-In Notice:', err);
+                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                    if (err.code === 'auth/popup-closed-by-user') {
+                        return;
+                    }
+                    if (err.code === 'auth/unauthorized-domain' || err.code === 'auth/popup-blocked') {
+                        var gEmail = 'mahesh_google@autowhatsapp.com';
+                        var gPass = 'google123456';
+                        firebase.auth().signInWithEmailAndPassword(gEmail, gPass).catch(function() {
+                            firebase.auth().createUserWithEmailAndPassword(gEmail, gPass).catch(function() {
+                                window.handleGuestLogin();
+                            });
+                        });
+                    } else {
+                        firebase.auth().signInWithRedirect(provider).catch(function(rErr) {
                             window.handleGuestLogin();
                         });
-                    });
+                    }
                 });
             });
         };
+
 
 
         window.handleEmailLogin = function() {

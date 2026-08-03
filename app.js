@@ -925,18 +925,33 @@ function switchDuration(dur) {
 }
 
 function openPaymentModal(planName, priceElemId, durElemId) {
-    currentSelectedPlan = planName;
-    const priceVal = document.getElementById(priceElemId) ? document.getElementById(priceElemId).innerText : '₹299';
-    const durVal = document.getElementById(durElemId) ? document.getElementById(durElemId).innerText : '/ month';
-    currentSelectedPrice = `${priceVal} ${durVal}`;
+    if (window.openPaymentModal) {
+        window.openPaymentModal(planName, priceElemId, durElemId);
+    } else {
+        currentSelectedPlan = planName;
+        const priceVal = document.getElementById(priceElemId) ? document.getElementById(priceElemId).innerText : '₹299';
+        const durVal = document.getElementById(durElemId) ? document.getElementById(durElemId).innerText : '/ month';
+        currentSelectedPrice = `${priceVal} ${durVal}`;
 
-    document.getElementById('modal-selected-plan').innerText = `${planName} (${currentSelectedDuration})`;
-    document.getElementById('modal-selected-price').innerText = currentSelectedPrice;
+        if (document.getElementById('modal-selected-plan')) {
+            document.getElementById('modal-selected-plan').innerText = `${planName} (${currentSelectedDuration})`;
+        }
+        if (document.getElementById('modal-selected-price')) {
+            document.getElementById('modal-selected-price').innerText = currentSelectedPrice;
+        }
 
-    closePricingModal();
-    const upiModal = document.getElementById('upi-payment-modal');
-    if (upiModal) upiModal.classList.remove('hidden');
+        closePricingModal();
+        const upiModal = document.getElementById('upi-payment-modal');
+        if (upiModal) {
+            upiModal.classList.remove('hidden');
+            upiModal.style.setProperty('display', 'flex', 'important');
+            upiModal.style.setProperty('visibility', 'visible', 'important');
+            upiModal.style.setProperty('opacity', '1', 'important');
+            upiModal.style.setProperty('z-index', '9999999', 'important');
+        }
+    }
 }
+
 
 function closePaymentModal() {
     const upiModal = document.getElementById('upi-payment-modal');

@@ -312,14 +312,20 @@ class WhatsAppEngine {
         }
         let cleanJid = recipientJid.includes('@') ? recipientJid : `${digits}@s.whatsapp.net`;
 
+        // 15-Second Safety Timeout to prevent campaign hanging
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('WhatsApp Dispatch Timeout (15s exceeded)')), 15000);
+        });
+
+        let sendPromise;
         if (mediaObj && mediaObj.data && mediaObj.mimetype) {
             const buffer = Buffer.from(mediaObj.data, 'base64');
             if (mediaObj.mimetype.startsWith('image/')) {
-                return await accData.sock.sendMessage(cleanJid, { image: buffer, caption: messageText || '' });
+                sendPromise = accData.sock.sendMessage(cleanJid, { image: buffer, caption: messageText || '' });
             } else if (mediaObj.mimetype.startsWith('video/')) {
-                return await accData.sock.sendMessage(cleanJid, { video: buffer, caption: messageText || '' });
+                sendPromise = accData.sock.sendMessage(cleanJid, { video: buffer, caption: messageText || '' });
             } else {
-                return await accData.sock.sendMessage(cleanJid, {
+                sendPromise = accData.sock.sendMessage(cleanJid, {
                     document: buffer,
                     mimetype: mediaObj.mimetype,
                     fileName: mediaObj.filename || 'attachment.pdf',
@@ -327,9 +333,12 @@ class WhatsAppEngine {
                 });
             }
         } else {
-            return await accData.sock.sendMessage(cleanJid, { text: messageText });
+            sendPromise = accData.sock.sendMessage(cleanJid, { text: messageText });
         }
+
+        return await Promise.race([sendPromise, timeoutPromise]);
     }
+
 
     async logoutAccount(accId) {
         const accData = this.accounts.get(accId);
