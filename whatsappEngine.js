@@ -306,38 +306,45 @@ class WhatsAppEngine {
             throw new Error(`Account ${accId} is not connected!`);
         }
 
-        let digits = recipientJid.replace(/\D/g, '');
+        let digits = String(recipientJid).replace(/\D/g, '');
         if (digits.length === 10) {
             digits = `91${digits}`; // Auto-add India country code 91 for 10-digit mobile numbers
         }
         let cleanJid = recipientJid.includes('@') ? recipientJid : `${digits}@s.whatsapp.net`;
 
-        // 15-Second Safety Timeout to prevent campaign hanging
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('WhatsApp Dispatch Timeout (15s exceeded)')), 15000);
-        });
+        return new Promise(async (resolve, reject) => {
+            const timer = setTimeout(() => {
+                reject(new Error('WhatsApp Dispatch Timeout (10s exceeded)'));
+            }, 10000);
 
-        let sendPromise;
-        if (mediaObj && mediaObj.data && mediaObj.mimetype) {
-            const buffer = Buffer.from(mediaObj.data, 'base64');
-            if (mediaObj.mimetype.startsWith('image/')) {
-                sendPromise = accData.sock.sendMessage(cleanJid, { image: buffer, caption: messageText || '' });
-            } else if (mediaObj.mimetype.startsWith('video/')) {
-                sendPromise = accData.sock.sendMessage(cleanJid, { video: buffer, caption: messageText || '' });
-            } else {
-                sendPromise = accData.sock.sendMessage(cleanJid, {
-                    document: buffer,
-                    mimetype: mediaObj.mimetype,
-                    fileName: mediaObj.filename || 'attachment.pdf',
-                    caption: messageText || ''
-                });
+            try {
+                let res;
+                if (mediaObj && mediaObj.data && mediaObj.mimetype) {
+                    const buffer = Buffer.from(mediaObj.data, 'base64');
+                    if (mediaObj.mimetype.startsWith('image/')) {
+                        res = await accData.sock.sendMessage(cleanJid, { image: buffer, caption: messageText || '' });
+                    } else if (mediaObj.mimetype.startsWith('video/')) {
+                        res = await accData.sock.sendMessage(cleanJid, { video: buffer, caption: messageText || '' });
+                    } else {
+                        res = await accData.sock.sendMessage(cleanJid, {
+                            document: buffer,
+                            mimetype: mediaObj.mimetype,
+                            fileName: mediaObj.filename || 'attachment.pdf',
+                            caption: messageText || ''
+                        });
+                    }
+                } else {
+                    res = await accData.sock.sendMessage(cleanJid, { text: messageText || 'Hello' });
+                }
+                clearTimeout(timer);
+                resolve(res);
+            } catch (err) {
+                clearTimeout(timer);
+                reject(err);
             }
-        } else {
-            sendPromise = accData.sock.sendMessage(cleanJid, { text: messageText });
-        }
-
-        return await Promise.race([sendPromise, timeoutPromise]);
+        });
     }
+
 
 
     async logoutAccount(accId) {
