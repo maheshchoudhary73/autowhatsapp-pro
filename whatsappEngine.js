@@ -313,7 +313,14 @@ class WhatsAppEngine {
     async sendMessageFrom(accId, recipientJid, messageText, mediaObj = null) {
         const accData = this.accounts.get(accId);
         if (!accData || accData.status !== 'CONNECTED' || !accData.sock) {
-            throw new Error(`Account ${accId} is not connected!`);
+            throw new Error(`Account ${accId} is not connected! Please scan QR code first.`);
+        }
+
+        // Socket Readiness Check: Auto-reconnect if socket user session dropped
+        if (!accData.sock.user) {
+            console.log(`[Baileys Engine] Account ${accId} socket user missing. Re-initializing socket instance...`);
+            await this.createAccountInstance(accId);
+            await delay(1500);
         }
 
         let digits = String(recipientJid).replace(/\D/g, '');
@@ -321,6 +328,8 @@ class WhatsAppEngine {
             digits = `91${digits}`; // Auto-add India country code 91 for 10-digit mobile numbers
         }
         let cleanJid = `${digits}@s.whatsapp.net`;
+
+        console.log(`[Baileys Dispatch] Sending from ${accId} (${accData.userInfo?.wid || 'active'}) to ${cleanJid}: "${messageText}"`);
 
         let sendPromise;
         if (mediaObj && mediaObj.data && mediaObj.mimetype) {
@@ -347,6 +356,7 @@ class WhatsAppEngine {
 
         return Promise.race([sendPromise, timeoutPromise]);
     }
+
 
 
 
