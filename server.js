@@ -307,12 +307,21 @@ const userQueueManagers = new Map();
 
 function getUserEngine(uid) {
     if (!userEngines.has(uid)) {
+        console.log(`[SaaS Multi-Tenant] Instantiating WhatsApp Engine for User: ${uid}`);
         const engine = new WhatsAppEngine(uid);
+        const userRoom = `user_${uid}`;
+        engine.setOnAccountsUpdate((accounts) => {
+            io.to(userRoom).emit('accounts_update', accounts);
+        });
+        engine.setOnAutoReplyLog((logData) => {
+            io.to(userRoom).emit('auto_reply_log', logData);
+        });
         engine.init();
         userEngines.set(uid, engine);
     }
     return userEngines.get(uid);
 }
+
 
 function getUserQueueManager(uid) {
     if (!userQueueManagers.has(uid)) {
