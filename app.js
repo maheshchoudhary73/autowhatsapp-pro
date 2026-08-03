@@ -352,7 +352,6 @@ function initUserSocket(user) {
 
 
     socket.on('campaign_progress', (data) => {
-
         const { sent, pending, failed } = data;
         if (sentCountEl) sentCountEl.textContent = sent;
         if (pendingCountEl) pendingCountEl.textContent = pending;
@@ -878,9 +877,21 @@ let currentSelectedPrice = '₹299';
 let currentSelectedDuration = '1M';
 
 const PRICING_MATRIX = {
-    '1M': { starter: '₹299', basic: '₹999', business: '₹2,999', durLabel: '/ month' },
-    '3M': { starter: '₹799', basic: '₹2,699', business: '₹7,999', durLabel: '/ 3 months (10% OFF)' },
-    '6M': { starter: '₹1,499', basic: '₹4,999', business: '₹14,999', durLabel: '/ 6 months (20% OFF)' }
+    '1M': {
+        starter: '₹299', starterDur: '/ month',
+        basic: '₹999', basicDur: '/ month',
+        business: '₹2,999', businessDur: '/ month'
+    },
+    '3M': {
+        starter: '₹799', starterDur: '/ 3 months (10% OFF)',
+        basic: '₹2,699', basicDur: '/ 3 months (10% OFF)',
+        business: '₹7,999', businessDur: '/ 3 months (10% OFF)'
+    },
+    '6M': {
+        starter: '₹1,499', starterDur: '/ 6 months (20% OFF)',
+        basic: '₹4,999', basicDur: '/ 6 months (20% OFF)',
+        business: '₹14,999', businessDur: '/ 6 months (20% OFF)'
+    }
 };
 
 function openPricingModal() {
@@ -896,7 +907,7 @@ function closePricingModal() {
     const modal = document.getElementById('saas-pricing-modal');
     if (modal) {
         modal.classList.add('hidden');
-        modal.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important;';
+        modal.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important; z-index: -1 !important; pointer-events: none !important;';
     }
 }
 window.closePricingModal = closePricingModal;
@@ -905,7 +916,7 @@ function closePaymentModal() {
     const upiModal = document.getElementById('upi-payment-modal');
     if (upiModal) {
         upiModal.classList.add('hidden');
-        upiModal.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important;';
+        upiModal.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important; z-index: -1 !important; pointer-events: none !important;';
     }
 }
 window.closePaymentModal = closePaymentModal;
@@ -918,10 +929,12 @@ function switchDuration(dur) {
             btn.classList.add('active');
             btn.style.background = 'var(--primary)';
             btn.style.color = '#000';
+            btn.style.fontWeight = '800';
         } else {
             btn.classList.remove('active');
-            btn.style.background = 'transparent';
+            btn.style.background = 'rgba(255,255,255,0.05)';
             btn.style.color = 'var(--text-main)';
+            btn.style.fontWeight = '600';
         }
     });
 
@@ -931,16 +944,17 @@ function switchDuration(dur) {
             const priceEl = document.getElementById(`price-${plan}`);
             const durEl = document.getElementById(`dur-${plan}`);
             if (priceEl) priceEl.innerText = rates[plan];
-            if (durEl) durEl.innerText = rates.durLabel;
+            if (durEl) durEl.innerText = rates[`${plan}Dur`];
 
             const mpriceEl = document.getElementById(`mprice-${plan}`);
             const mdurEl = document.getElementById(`mdur-${plan}`);
             if (mpriceEl) mpriceEl.innerText = rates[plan];
-            if (mdurEl) mdurEl.innerText = rates.durLabel;
+            if (mdurEl) mdurEl.innerText = rates[`${plan}Dur`];
         });
     }
 }
 window.switchDuration = switchDuration;
+
 
 
 
