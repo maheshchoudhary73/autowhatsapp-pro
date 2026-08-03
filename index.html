@@ -295,21 +295,16 @@
                     console.log('Google Popup Login Successful:', result.user.email);
                     if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
                 }).catch(function(err) {
-                    console.warn('Google Sign-In Notice:', err);
+                    console.warn('Google Sign-In Error:', err);
                     if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
-                    if (err.code === 'auth/popup-closed-by-user') {
+                    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
                         return;
                     }
-                    var gEmail = 'mahesh_google@autowhatsapp.com';
-                    var gPass = 'google123456';
-                    firebase.auth().signInWithEmailAndPassword(gEmail, gPass).catch(function() {
-                        firebase.auth().createUserWithEmailAndPassword(gEmail, gPass).catch(function() {
-                            window.handleGuestLogin();
-                        });
-                    });
+                    alert('Google Sign-In Notice: ' + (err.message || 'Please choose your Google account in the popup.'));
                 });
             });
         };
+
 
 
 
