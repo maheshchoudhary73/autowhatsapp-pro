@@ -210,22 +210,20 @@
             var provider = new firebase.auth.GoogleAuthProvider();
             provider.addScope('email');
             provider.addScope('profile');
-            provider.setCustomParameters({ prompt: 'select_account' });
 
-            // Direct Memory-based Popup Authentication (Bypasses IP Cross-Origin Cookie Blocking)
+            // Clean Single Popup Authentication (NO double screens, NO redirect loops!)
             firebase.auth().signInWithPopup(provider).then(function(result) {
                 if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
                 if (window.closeAuthModal) window.closeAuthModal();
             }).catch(function(err) {
-                console.warn('Google Auth Notice:', err.code, err.message);
                 if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
-                if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
-                    firebase.auth().signInWithRedirect(provider);
-                } else if (err.code !== 'auth/popup-closed-by-user') {
-                    console.log('Google Auth Note:', err.message);
+                console.log('Google Auth Status:', err.code, err.message);
+                if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+                    alert('Google Login Note: ' + (err.message || 'Please enable popups or try Email Login.'));
                 }
             });
         };
+
 
         if (typeof firebase !== 'undefined' && firebase.auth) {
             firebase.auth().getRedirectResult().then(function(result) {
