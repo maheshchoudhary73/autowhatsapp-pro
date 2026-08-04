@@ -347,7 +347,6 @@ function initUserSocket(user) {
 
 
     socket.on('campaign_progress', (data) => {
-
         const { sent, pending, failed } = data;
         if (sentCountEl) sentCountEl.textContent = sent;
         if (pendingCountEl) pendingCountEl.textContent = pending;
