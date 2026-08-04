@@ -255,23 +255,6 @@ if (btnEmailSignup) {
     });
 }
 
-// INSTANT 1-CLICK GUEST ACCESS
-const btnGuestLogin = document.getElementById('btn-guest-login');
-if (btnGuestLogin) {
-    btnGuestLogin.addEventListener('click', () => {
-        btnGuestLogin.disabled = true;
-        btnGuestLogin.innerText = 'Connecting Guest Access...';
-        const guestEmail = 'guest_' + Math.floor(Math.random() * 1000000) + '@autowhatsapp.com';
-        const guestPass = 'guest123456';
-        firebase.auth().createUserWithEmailAndPassword(guestEmail, guestPass).catch(err => {
-            firebase.auth().signInWithEmailAndPassword(guestEmail, guestPass).catch(gErr => {
-                alert('Guest login error: ' + gErr.message);
-                btnGuestLogin.disabled = false;
-                btnGuestLogin.innerHTML = '<i class="fa-solid fa-bolt"></i> Instant 1-Click Guest Access';
-            });
-        });
-    });
-}
 
 
 if (btnUserLogout) {
