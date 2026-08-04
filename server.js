@@ -363,10 +363,11 @@ app.get('/admin', (req, res) => {
 const userEngines = new Map();
 const userQueueManagers = new Map();
 
-function getUserEngine(uid) {
+function getUserEngine(uid, userPlan = 'FREE') {
     if (!userEngines.has(uid)) {
-        console.log(`[SaaS Multi-Tenant] Instantiating WhatsApp Engine for User: ${uid}`);
+        console.log(`[SaaS Multi-Tenant] Instantiating WhatsApp Engine for User: ${uid} (Plan: ${userPlan})`);
         const engine = new WhatsAppEngine(uid);
+        engine.setUserPlan(userPlan);
         const userRoom = `user_${uid}`;
         engine.setOnAccountsUpdate((accounts) => {
             io.to(userRoom).emit('accounts_update', accounts);
@@ -374,8 +375,17 @@ function getUserEngine(uid) {
         engine.setOnAutoReplyLog((logData) => {
             io.to(userRoom).emit('auto_reply_log', logData);
         });
+        engine.setOnDuplicateAlert((alertData) => {
+            console.log(`[Duplicate WhatsApp Number Alert] User ${uid} | Phone +${alertData.phone}`);
+            io.to(userRoom).emit('duplicate_number_alert', alertData);
+        });
         engine.init();
         userEngines.set(uid, engine);
+    } else {
+        const engine = userEngines.get(uid);
+        if (engine && userPlan) {
+            engine.setUserPlan(userPlan);
+        }
     }
     return userEngines.get(uid);
 }
@@ -417,13 +427,14 @@ io.on('connection', (socket) => {
     const userRoom = `user_${uid}`;
     socket.join(userRoom);
 
-    const waEngine = getUserEngine(uid);
-    const queueMgr = getUserQueueManager(uid);
-
     // Send User Quota Info & Account State on Connect
     const userQuota = getUserQuotaRecord(uid, email);
+    const waEngine = getUserEngine(uid, userQuota.plan);
+    const queueMgr = getUserQueueManager(uid);
+
     socket.emit('user_quota_info', userQuota);
     socket.emit('accounts_update', waEngine.getAccountsState());
+
 
 
     // Socket Listener for UTR Payment Submissions

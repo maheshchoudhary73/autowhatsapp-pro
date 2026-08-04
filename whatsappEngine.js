@@ -39,11 +39,26 @@ class WhatsAppEngine {
             userInfo: null
         });
 
+        this.userPlan = 'FREE';
+        this.maxAllowedSlots = 2; // Default 2 slots for FREE / Starter
         this.autoReplyRules = [];
         this.onAccountsUpdate = null;
         this.onAutoReplyLog = null;
+        this.onDuplicateAlert = null;
     }
 
+    setUserPlan(plan) {
+        this.userPlan = plan || 'FREE';
+        if (this.userPlan === 'Starter' || this.userPlan === 'FREE' || this.userPlan === 'FREE_EXPIRED') {
+            this.maxAllowedSlots = 2;
+        } else if (this.userPlan === 'Basic') {
+            this.maxAllowedSlots = 5;
+        } else if (this.userPlan === 'Business') {
+            this.maxAllowedSlots = 20;
+        } else {
+            this.maxAllowedSlots = 2;
+        }
+    }
 
     setOnAccountsUpdate(fn) {
         this.onAccountsUpdate = fn;
@@ -51,6 +66,10 @@ class WhatsAppEngine {
 
     setOnAutoReplyLog(fn) {
         this.onAutoReplyLog = fn;
+    }
+
+    setOnDuplicateAlert(fn) {
+        this.onDuplicateAlert = fn;
     }
 
     async initAllAccounts() {
@@ -73,7 +92,10 @@ class WhatsAppEngine {
         if (sessionDirs.length > 0) {
             for (const dirName of sessionDirs) {
                 const accId = dirName.replace(`session-${this.userId}_`, '');
-                await this.createAccountInstance(accId);
+                const num = parseInt(accId.replace('acc_', '')) || 1;
+                if (num <= this.maxAllowedSlots) {
+                    await this.createAccountInstance(accId);
+                }
             }
         } else {
             // Default Account Slot 1 for this User
@@ -82,6 +104,12 @@ class WhatsAppEngine {
     }
 
     async createAccountInstance(accId) {
+        const num = parseInt(String(accId).replace('acc_', '')) || 1;
+        if (num > this.maxAllowedSlots) {
+            console.log(`[Baileys Pure Engine] 🔒 Slot ${accId} is Locked for User Plan "${this.userPlan}". Max slots: ${this.maxAllowedSlots}`);
+            return null;
+        }
+
         if (this.accounts.has(accId)) {
             const existing = this.accounts.get(accId);
             if (existing.status === 'CONNECTED') {
@@ -89,8 +117,9 @@ class WhatsAppEngine {
             }
         }
 
-        if (this.accounts.size >= this.maxAccounts && !this.accounts.has(accId)) {
-            throw new Error(`Maximum limit of ${this.maxAccounts} WhatsApp accounts reached!`);
+        if (this.accounts.size >= this.maxAllowedSlots && !this.accounts.has(accId)) {
+            console.log(`[Baileys Pure Engine] Account limit reached (${this.maxAllowedSlots}) for plan ${this.userPlan}`);
+            return null;
         }
 
         const sessionPath = path.join(__dirname, '.baileys_auth', `session-${this.userId}_${accId}`);
@@ -155,11 +184,19 @@ class WhatsAppEngine {
                         for (const [existingId, existingAcc] of this.accounts) {
                             if (existingId !== accId && existingAcc.status === 'CONNECTED' && existingAcc.userInfo && existingAcc.userInfo.wid === cleanPhone) {
                                 console.log(`[Baileys Pure Engine] ⚠️ Account +${cleanPhone} is Already Registered on ${existingId}! Disconnecting duplicate slot ${accId}...`);
+                                if (this.onDuplicateAlert) {
+                                    this.onDuplicateAlert({
+                                        phone: cleanPhone,
+                                        existingSlot: existingId,
+                                        currentSlot: accId
+                                    });
+                                }
                                 await this.logoutAccount(accId);
                                 return;
                             }
                         }
                     }
+
 
                     accData.userInfo = {
                         pushname: pushName,
@@ -419,16 +456,30 @@ class WhatsAppEngine {
 
     getAllAccountsState() {
         const result = [];
-        for (const [accId, accData] of this.accounts) {
-            result.push({
-                id: accId,
-                status: accData.status,
-                qrCode: accData.qrCodeDataUrl,
-                userInfo: accData.userInfo
-            });
+        const maxSlotsToDisplay = this.maxAllowedSlots || 2;
+        
+        for (let i = 1; i <= maxSlotsToDisplay; i++) {
+            const accId = `acc_${i}`;
+            const accData = this.accounts.get(accId);
+            if (accData) {
+                result.push({
+                    id: accId,
+                    status: accData.status,
+                    qrCode: accData.qrCodeDataUrl,
+                    userInfo: accData.userInfo
+                });
+            } else {
+                result.push({
+                    id: accId,
+                    status: 'DISCONNECTED',
+                    qrCode: null,
+                    userInfo: null
+                });
+            }
         }
         return result;
     }
+
 
     getAccountsState() {
         return this.getAllAccountsState();

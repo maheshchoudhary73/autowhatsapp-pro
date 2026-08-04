@@ -295,12 +295,19 @@ function initUserSocket(user) {
         renderAccounts(accounts);
     });
 
+    socket.on('duplicate_number_alert', (data) => {
+        const slotName = (data.existingSlot || 'another slot').replace('acc_', 'Slot ');
+        const phone = data.phone || '';
+        alert(`⚠️ DUPLICATE WHATSAPP CONNECTION REJECTED!\n\nWhatsApp Number (+${phone}) is ALREADY connected in Account ${slotName}!\n\nYou cannot link the exact same WhatsApp number to multiple slots.`);
+    });
+
     socket.on('plan_limit_exceeded', (info) => {
         alert(info.message || 'Plan limit exceeded!');
         if (window.openPricingModal) {
             window.openPricingModal();
         }
     });
+
 
     socket.on('user_quota_info', (quota) => {
         currentUserQuota = quota;
@@ -354,6 +361,7 @@ function initUserSocket(user) {
 
 
     socket.on('campaign_progress', (data) => {
+
         const { sent, pending, failed } = data;
         if (sentCountEl) sentCountEl.textContent = sent;
         if (pendingCountEl) pendingCountEl.textContent = pending;

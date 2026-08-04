@@ -18,10 +18,10 @@ class QueueManager {
         this.accountSendCounts = {};
 
         this.settings = {
-            maxPerMinute: 30,
+            maxPerMinute: 4,
             maxPer24Hours: 2000,
-            minDelaySeconds: 2,
-            maxDelaySeconds: 5
+            minDelaySeconds: 14,
+            maxDelaySeconds: 16
         };
 
         this.status = 'idle';
@@ -35,8 +35,9 @@ class QueueManager {
             pending: 0,
             dailySent24h: 0,
             activeAccountsCount: 1,
-            speedCapPerMin: 30
+            speedCapPerMin: 4
         };
+
 
         this.logs = [];
         this.currentTimeout = null;
