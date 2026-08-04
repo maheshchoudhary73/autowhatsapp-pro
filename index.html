@@ -201,33 +201,29 @@
 
         window.handleGoogleLogin = function() {
             if (typeof firebase === 'undefined' || !firebase.auth) {
+                alert('Firebase Auth is loading... Please try again in 1 second.');
                 return;
             }
             var btn = document.getElementById('btn-google-login');
             if (btn) { btn.disabled = true; btn.innerText = 'Connecting Google Account...'; }
 
-            firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(function() {
-                var provider = new firebase.auth.GoogleAuthProvider();
-                var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
-                
-                if (isMobile) {
+            var provider = new firebase.auth.GoogleAuthProvider();
+            provider.addScope('email');
+            provider.addScope('profile');
+            var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
+            
+            if (isMobile) {
+                // Synchronous Same-Tab Redirect for Mobile - ZERO Popups, ZERO New Tabs!
+                firebase.auth().signInWithRedirect(provider);
+            } else {
+                firebase.auth().signInWithPopup(provider).then(function(result) {
+                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                    if (window.closeAuthModal) window.closeAuthModal();
+                }).catch(function(err) {
+                    console.warn('Google Popup blocked or notice:', err.message);
                     firebase.auth().signInWithRedirect(provider);
-                } else {
-
-                    firebase.auth().signInWithPopup(provider).then(function(result) {
-                        console.log('Google Popup Login Successful:', result.user.email);
-                        if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
-                        if (window.closeAuthModal) window.closeAuthModal();
-                    }).catch(function(err) {
-                        console.warn('Google Popup blocked or notice:', err.message);
-                        if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
-                            firebase.auth().signInWithRedirect(provider);
-                            return;
-                        }
-                        if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
-                    });
-                }
-            });
+                });
+            }
         };
 
         if (typeof firebase !== 'undefined' && firebase.auth) {
@@ -239,6 +235,7 @@
                 console.log('Redirect result:', err.message);
             });
         }
+
 
 
 
