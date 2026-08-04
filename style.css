@@ -1370,9 +1370,9 @@ body {
 
     .app-header {
         flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 12px !important;
-        padding: 14px !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 12px !important;
         margin-bottom: 12px !important;
     }
 
@@ -1382,53 +1382,32 @@ body {
     }
 
     .user-header-profile {
-        flex-direction: column !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
         align-items: center !important;
-        gap: 10px !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
         width: 100% !important;
         background: rgba(255, 255, 255, 0.03) !important;
-        padding: 12px !important;
+        padding: 10px !important;
         border-radius: 12px !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
 
-    .user-info-box {
-        display: flex !important;
-        align-items: center !important;
-        gap: 10px !important;
-        width: 100% !important;
-        justify-content: flex-start !important;
-    }
-
-    .user-avatar {
-        width: 42px !important;
-        height: 42px !important;
-        flex-shrink: 0 !important;
-    }
-
-    .user-text-details {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 4px !important;
-        overflow: hidden !important;
-        width: 100% !important;
-    }
-
-    .user-display-name {
-        font-size: 13px !important;
+    /* 1-Line Compact Buttons for Buy Subscription & Logout */
+    .user-header-profile > button,
+    .user-header-profile .btn,
+    .app-header .btn {
+        display: inline-flex !important;
+        width: auto !important;
+        max-width: fit-content !important;
+        flex: 0 0 auto !important;
+        padding: 6px 12px !important;
+        font-size: 11px !important;
         font-weight: 700 !important;
+        border-radius: 8px !important;
+        margin: 0 !important;
         white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        max-width: 220px !important;
-    }
-
-    .user-header-profile > button {
-        width: 100% !important;
-        justify-content: center !important;
-        padding: 10px !important;
-        font-size: 12px !important;
     }
 
     .stats-grid {
@@ -1449,10 +1428,37 @@ body {
         padding: 14px !important;
         width: 100% !important;
         box-sizing: border-box !important;
+        overflow-x: hidden !important;
     }
 
-    .pricing-cards-grid {
+    /* 100% Fit for Speed Matrix Table (No Cutoff) */
+    .capacity-table, table {
+        display: table !important;
+        width: 100% !important;
+        font-size: 11px !important;
+        table-layout: fixed !important;
+    }
+
+    .capacity-table th, .capacity-table td, table th, table td {
+        padding: 6px 4px !important;
+        font-size: 11px !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+    }
+
+    /* 1-Column Vertical Stack for Bottom Pricing Grid (No Cutoff) */
+    .pricing-cards-grid,
+    .pricing-grid,
+    div[style*="grid-template-columns"] {
         grid-template-columns: 1fr !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .plan-card {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        margin-bottom: 12px !important;
     }
 
     .auth-card {
@@ -1465,14 +1471,8 @@ body {
         width: 95% !important;
         padding: 16px !important;
     }
-
-    table {
-        display: block !important;
-        overflow-x: auto !important;
-        white-space: nowrap !important;
-        max-width: 100% !important;
-    }
 }
+
 
 
 
