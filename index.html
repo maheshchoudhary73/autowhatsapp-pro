@@ -210,20 +210,21 @@
             var provider = new firebase.auth.GoogleAuthProvider();
             provider.addScope('email');
             provider.addScope('profile');
-            var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
-            
-            if (isMobile) {
-                // Synchronous Same-Tab Redirect for Mobile - ZERO Popups, ZERO New Tabs!
-                firebase.auth().signInWithRedirect(provider);
-            } else {
-                firebase.auth().signInWithPopup(provider).then(function(result) {
-                    if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
-                    if (window.closeAuthModal) window.closeAuthModal();
-                }).catch(function(err) {
-                    console.warn('Google Popup blocked or notice:', err.message);
+            provider.setCustomParameters({ prompt: 'select_account' });
+
+            // Direct Memory-based Popup Authentication (Bypasses IP Cross-Origin Cookie Blocking)
+            firebase.auth().signInWithPopup(provider).then(function(result) {
+                if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                if (window.closeAuthModal) window.closeAuthModal();
+            }).catch(function(err) {
+                console.warn('Google Auth Notice:', err.code, err.message);
+                if (btn) { btn.disabled = false; btn.innerText = 'Continue with Google'; }
+                if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
                     firebase.auth().signInWithRedirect(provider);
-                });
-            }
+                } else if (err.code !== 'auth/popup-closed-by-user') {
+                    console.log('Google Auth Note:', err.message);
+                }
+            });
         };
 
         if (typeof firebase !== 'undefined' && firebase.auth) {
@@ -235,6 +236,7 @@
                 console.log('Redirect result:', err.message);
             });
         }
+
 
 
 
