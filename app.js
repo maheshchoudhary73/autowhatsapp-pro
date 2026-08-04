@@ -140,9 +140,21 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
             if (sidebarUserEmail) sidebarUserEmail.textContent = user.email || user.uid;
             if (sidebarUserAvatar) sidebarUserAvatar.src = avatarUrl;
 
-            if (saasLandingPage) saasLandingPage.classList.add('hidden');
+            if (saasLandingPage) {
+                saasLandingPage.classList.add('hidden');
+                saasLandingPage.style.display = 'none';
+            }
             if (window.closeAuthModal) window.closeAuthModal();
-            if (mainAppContainer) mainAppContainer.classList.remove('hidden');
+            if (mainAppContainer) {
+                mainAppContainer.classList.remove('hidden');
+                mainAppContainer.style.display = 'block';
+            }
+
+            // Trigger instant layout recalculation to prevent blank dark boxes on load
+            setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+            }, 50);
+
 
             // Auto-trigger pending payment modal if user clicked subscribe before logging in!
             if (window.pendingSelectedPlan && window.openPaymentModal) {
@@ -352,6 +364,7 @@ function initUserSocket(user) {
 
 
     socket.on('campaign_progress', (data) => {
+
         const { sent, pending, failed } = data;
         if (sentCountEl) sentCountEl.textContent = sent;
         if (pendingCountEl) pendingCountEl.textContent = pending;
