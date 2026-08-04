@@ -151,20 +151,42 @@ app.get('/api/admin/approve-utr', (req, res) => {
     payment.status = 'APPROVED';
     savePendingPayments(payData);
 
-    // Upgrade User Quota Database
+    // Upgrade User Quota Database (Match by UID OR Email!)
     const data = loadUserQuotas();
-    if (data.users[payment.uid]) {
-        data.users[payment.uid].plan = payment.plan || 'PRO';
-        saveUserQuotas(data);
+    let targetUid = payment.uid;
+    if (!data.users[targetUid]) {
+        // Fallback match by email
+        const matchedUser = Object.values(data.users || {}).find(u => u.email === payment.email);
+        if (matchedUser) targetUid = matchedUser.uid;
+    }
 
-        // Real-time socket update to user browser
-        const userRoom = `user_${payment.uid}`;
-        io.to(userRoom).emit('user_quota_info', data.users[payment.uid]);
+    if (!data.users[targetUid] && targetUid) {
+        // Create user record if missing
+        data.users[targetUid] = {
+            uid: targetUid,
+            email: payment.email || '',
+            plan: payment.plan || 'PRO',
+            createdAt: Date.now(),
+            dailyMaxQuota: payment.plan === 'Starter' ? 700 : payment.plan === 'Basic' ? 3500 : 15000,
+            dailySentToday: 0,
+            lastResetDate: new Date().toISOString().split('T')[0]
+        };
+    } else if (data.users[targetUid]) {
+        data.users[targetUid].plan = payment.plan || 'PRO';
+        data.users[targetUid].dailyMaxQuota = payment.plan === 'Starter' ? 700 : payment.plan === 'Basic' ? 3500 : 15000;
+    }
+    saveUserQuotas(data);
+
+    // Real-time socket update to user browser
+    const userRoom = `user_${targetUid}`;
+    if (data.users[targetUid]) {
+        io.to(userRoom).emit('user_quota_info', data.users[targetUid]);
     }
 
     // Redirect cleanly back to Admin Control Center with success message!
     res.redirect(`/admin?secret=${ADMIN_SECRET}&approved=true&user=${encodeURIComponent(payment.email || payment.uid)}&plan=${encodeURIComponent(payment.plan)}`);
 });
+
 
 // Admin Route to Revoke / Expire User Plan
 app.get('/api/admin/revoke-utr', (req, res) => {
@@ -406,11 +428,12 @@ io.on('connection', (socket) => {
 
     // Socket Listener for UTR Payment Submissions
     socket.on('submit_utr_payment', (utrPayload) => {
-        console.log(`[Payment UTR Submitted] User: ${utrPayload.email} | Plan: ${utrPayload.plan} | UTR: ${utrPayload.utrNumber}`);
+        console.log(`[Payment UTR Submitted] User: ${utrPayload.email} | Phone: ${utrPayload.phone} | Plan: ${utrPayload.plan} | UTR: ${utrPayload.utrNumber}`);
         const payData = loadPendingPayments();
         payData.payments.push({
             uid: utrPayload.uid || uid,
             email: utrPayload.email || email,
+            phone: utrPayload.phone || utrPayload.mobile || '',
             plan: utrPayload.plan,
             duration: utrPayload.duration,
             price: utrPayload.price,
@@ -419,6 +442,7 @@ io.on('connection', (socket) => {
             submittedAt: new Date().toISOString()
         });
         savePendingPayments(payData);
+
 
         // Send Instant WhatsApp Notification Alert to Admin Number (7340216019)
         try {
