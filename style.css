@@ -1433,9 +1433,19 @@ body {
     .glass-card {
         padding: 14px !important;
         width: 100% !important;
+        height: auto !important;
+        min-height: fit-content !important;
         box-sizing: border-box !important;
         overflow-x: hidden !important;
     }
+
+    .config-card, #sectionExcel, #sectionCampaign, .config-form {
+        height: auto !important;
+        min-height: fit-content !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
 
     /* 100% Fit for Speed Matrix Table (No Cutoff) */
     .capacity-table, table {

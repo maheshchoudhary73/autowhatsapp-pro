@@ -156,10 +156,43 @@ app.get('/api/admin/approve-utr', (req, res) => {
     if (data.users[payment.uid]) {
         data.users[payment.uid].plan = payment.plan || 'PRO';
         saveUserQuotas(data);
+
+        // Real-time socket update to user browser
+        const userRoom = `user_${payment.uid}`;
+        io.to(userRoom).emit('user_quota_info', data.users[payment.uid]);
     }
 
     // Redirect cleanly back to Admin Control Center with success message!
     res.redirect(`/admin?secret=${ADMIN_SECRET}&approved=true&user=${encodeURIComponent(payment.email || payment.uid)}&plan=${encodeURIComponent(payment.plan)}`);
+});
+
+// Admin Route to Revoke / Expire User Plan
+app.get('/api/admin/revoke-utr', (req, res) => {
+    const { utr, secret } = req.query;
+    if (secret !== ADMIN_SECRET && req.query.pass !== ADMIN_PASSWORD) {
+        return res.status(403).send('<h1>🔒 Unauthorized Admin Action</h1>');
+    }
+    
+    const payData = loadPendingPayments();
+    const payment = payData.payments.find(p => p.utrNumber === utr);
+    if (!payment) return res.status(404).send('<h1>❌ UTR Payment Record Not Found</h1>');
+
+    payment.status = 'EXPIRED';
+    savePendingPayments(payData);
+
+    // Revert User Quota Database to Expired Free Trial
+    const data = loadUserQuotas();
+    if (data.users && data.users[payment.uid]) {
+        data.users[payment.uid].plan = 'FREE_EXPIRED';
+        data.users[payment.uid].dailyMaxQuota = 0;
+        saveUserQuotas(data);
+
+        // Real-time socket update to user browser
+        const userRoom = `user_${payment.uid}`;
+        io.to(userRoom).emit('user_quota_info', data.users[payment.uid]);
+    }
+
+    res.redirect(`/admin?secret=${ADMIN_SECRET}&revoked=true&user=${encodeURIComponent(payment.email || payment.uid)}`);
 });
 
 // Protected HTML Admin Web Dashboard UI
@@ -168,6 +201,7 @@ app.get('/admin', (req, res) => {
     const email = req.query.email ? req.query.email.trim() : '';
     const pass = req.query.pass ? req.query.pass.trim() : '';
     const isApprovedAlert = req.query.approved === 'true';
+    const isRevokedAlert = req.query.revoked === 'true';
     const approvedUser = req.query.user || '';
     const approvedPlan = req.query.plan || '';
 
@@ -179,24 +213,19 @@ app.get('/admin', (req, res) => {
             <!DOCTYPE html>
             <html>
             <head>
-                <title>AutoWhatsApp Pro - Admin Portal Protection</title>
+                <title>Admin Login - AutoWhatsApp Pro</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;800&display=swap" rel="stylesheet">
                 <style>
-                    body { background:#090d16; color:#f8fafc; font-family:'Plus Jakarta Sans', sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:20px; }
-                    .login-card { background:rgba(21, 28, 44, 0.95); border:1px solid rgba(0, 242, 254, 0.3); border-radius:18px; padding:36px; max-width:400px; width:100%; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,0.5); }
-                    .brand-title { font-size:20px; font-weight:800; color:#25d366; margin-bottom:6px; }
-                    .sub-text { font-size:12px; color:#94a3b8; margin-bottom:24px; }
-                    .input-group { text-align:left; margin-bottom:14px; }
-                    label { font-size:12px; font-weight:700; color:#cbd5e1; display:block; margin-bottom:6px; }
-                    input { width:100%; padding:12px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.15); border-radius:8px; color:#fff; font-size:14px; box-sizing:border-box; }
-                    button { width:100%; padding:12px; background:linear-gradient(135deg, #25d366, #128c7e); border:none; border-radius:8px; color:#000; font-size:14px; font-weight:800; cursor:pointer; margin-top:10px; }
+                    body { background: #0b1120; color: #f8fafc; font-family: sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+                    .card { background: #1e293b; padding: 32px; border-radius: 16px; border:1px solid #334155; width:340px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+                    input { width:100%; padding:10px; margin-top:8px; border-radius:8px; border:1px solid #475569; background:#0f172a; color:#fff; box-sizing:border-box; }
+                    button { width:100%; padding:12px; margin-top:16px; border-radius:8px; border:none; background:#25d366; color:#000; font-weight:800; cursor:pointer; }
+                    .input-group { text-align:left; margin-bottom:12px; font-size:12px; color:#94a3b8; }
                 </style>
             </head>
             <body>
-                <div class="login-card">
-                    <div class="brand-title">👑 Admin Security Portal</div>
-                    <div class="sub-text">Enter Admin credentials to unlock control panel</div>
+                <div class="card">
+                    <h2 style="margin-top:0; color:#25d366;">🔑 Admin Security Login</h2>
                     
                     <form action="/admin" method="GET">
                         <div class="input-group">
@@ -209,10 +238,6 @@ app.get('/admin', (req, res) => {
                         </div>
                         <button type="submit">Unlock Admin Control Center</button>
                     </form>
-                    
-                    <div style="font-size:10px; color:#64748b; margin-top:16px;">
-                        🔒 Strictly Protected Portal Access
-                    </div>
                 </div>
             </body>
             </html>
@@ -227,25 +252,34 @@ app.get('/admin', (req, res) => {
         <tr style="border-bottom:1px solid #334155;">
             <td style="padding:14px;">${idx + 1}</td>
             <td style="padding:14px; font-weight:700; color:#f8fafc;">${p.email || p.uid}</td>
+            <td style="padding:14px; font-weight:700; color:#38bdf8;">${p.phone || 'N/A'}</td>
             <td style="padding:14px; color:#00f2fe; font-weight:700;">${p.plan} (${p.duration || '1M'})</td>
             <td style="padding:14px; color:#10b981; font-weight:800;">${p.price}</td>
             <td style="padding:14px; font-family:monospace; font-size:14px; background:rgba(255,255,255,0.05); letter-spacing:1px;">${p.utrNumber}</td>
             <td style="padding:14px; font-size:12px; color:#94a3b8;">${new Date(p.timestamp).toLocaleString()}</td>
             <td style="padding:14px;">
                 ${p.status === 'APPROVED' 
-                    ? '<span style="color:#10b981; font-weight:800; background:rgba(16,185,129,0.15); padding:6px 12px; border-radius:20px; font-size:12px;">✅ APPROVED</span>' 
+                    ? `<span style="color:#10b981; font-weight:800; background:rgba(16,185,129,0.15); padding:6px 12px; border-radius:20px; font-size:12px; margin-right:8px; display:inline-block;">✅ APPROVED</span>
+                       <a href="/api/admin/revoke-utr?utr=${p.utrNumber}&secret=${ADMIN_SECRET}" onclick="return confirm('Expire/Revoke Plan for ${p.email}?')" style="background:linear-gradient(135deg, #ef4444, #dc2626); color:#fff; padding:6px 12px; border-radius:8px; font-weight:700; font-size:11px; text-decoration:none; display:inline-block; box-shadow:0 4px 12px rgba(239,68,68,0.3);">🚫 Revoke / Expire Plan</a>` 
+                    : p.status === 'EXPIRED'
+                    ? '<span style="color:#ef4444; font-weight:800; background:rgba(239,68,68,0.15); padding:6px 12px; border-radius:20px; font-size:12px;">🚫 EXPIRED</span>'
                     : `<a href="/api/admin/approve-utr?utr=${p.utrNumber}&secret=${ADMIN_SECRET}" style="background:linear-gradient(135deg, #25d366, #10b981); color:#000; padding:8px 16px; border-radius:8px; font-weight:800; text-decoration:none; display:inline-block; box-shadow:0 4px 12px rgba(37,211,102,0.3);">✅ Approve Plan</a>`}
             </td>
         </tr>
     `).join('');
 
     if (payments.length === 0) {
-        rowsHtml = `<tr><td colspan="7" style="padding:40px; text-align:center; color:#94a3b8;">No UTR payment submissions found yet.</td></tr>`;
+        rowsHtml = `<tr><td colspan="8" style="padding:40px; text-align:center; color:#94a3b8;">No UTR payment submissions found yet.</td></tr>`;
     }
 
     const alertBannerHtml = isApprovedAlert ? `
         <div style="background:rgba(37,211,102,0.15); border:1px solid #25d366; color:#25d366; padding:14px 20px; border-radius:12px; margin-bottom:20px; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:space-between;">
             <span>🎉 SUCCESS! Plan "${approvedPlan}" has been Approved & Activated for ${approvedUser}!</span>
+            <a href="/admin?secret=${ADMIN_SECRET}" style="color:#fff; text-decoration:none; font-size:12px;">Dismiss ✖</a>
+        </div>
+    ` : isRevokedAlert ? `
+        <div style="background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#ef4444; padding:14px 20px; border-radius:12px; margin-bottom:20px; font-weight:700; font-size:14px; display:flex; align-items:center; justify-content:space-between;">
+            <span>🚫 NOTICE: User Plan has been Expired / Revoked for ${approvedUser}!</span>
             <a href="/admin?secret=${ADMIN_SECRET}" style="color:#fff; text-decoration:none; font-size:12px;">Dismiss ✖</a>
         </div>
     ` : '';
@@ -282,11 +316,13 @@ app.get('/admin', (req, res) => {
                             <tr>
                                 <th>#</th>
                                 <th>User Email</th>
+                                <th>Mobile No.</th>
                                 <th>Selected Plan</th>
                                 <th>Amount</th>
                                 <th>12-Digit UTR No.</th>
                                 <th>Date & Time</th>
                                 <th>Action</th>
+
                             </tr>
                         </thead>
                         <tbody>${rowsHtml}</tbody>
@@ -375,18 +411,19 @@ io.on('connection', (socket) => {
         });
         savePendingPayments(payData);
 
-        // Send Instant WhatsApp Notification Alert to Admin Number (8094191390)
+        // Send Instant WhatsApp Notification Alert to Admin Number (7340216019)
         try {
             const adminMsg = `🚨 *NEW PAYMENT UTR RECEIVED* 🚨\n\n👤 *User Email:* ${utrPayload.email}\n📦 *Plan:* ${utrPayload.plan} (${utrPayload.duration || '1M'})\n💰 *Amount:* ${utrPayload.price}\n🔢 *UTR Number:* ${utrPayload.utrNumber}\n\n⚠️ *Please verify UTR receipt on PhonePe/GPay.*`;
             
             const connectedAccs = waEngine.getConnectedAccountIds();
             if (connectedAccs.length > 0) {
                 const accId = connectedAccs[0];
-                waEngine.sendMessageFrom(accId, '918094191390@s.whatsapp.net', adminMsg);
+                waEngine.sendMessageFrom(accId, '917340216019@s.whatsapp.net', adminMsg);
             }
         } catch (e) {
             console.error('Error sending WhatsApp admin alert:', e.message);
         }
+
 
 
     });
