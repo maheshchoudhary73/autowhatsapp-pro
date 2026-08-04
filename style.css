@@ -956,7 +956,13 @@ body {
     background: rgba(18, 140, 126, 0.04);
     transition: all 0.3s ease;
     cursor: pointer;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
+
 .excel-dropzone-premium:hover {
     border-color: var(--primary);
     background: rgba(37, 211, 102, 0.08);
