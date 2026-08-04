@@ -142,12 +142,12 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
 
             if (saasLandingPage) {
                 saasLandingPage.classList.add('hidden');
-                saasLandingPage.style.display = 'none';
+                saasLandingPage.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important; height: 0 !important; overflow: hidden !important;';
             }
             if (window.closeAuthModal) window.closeAuthModal();
             if (mainAppContainer) {
                 mainAppContainer.classList.remove('hidden');
-                mainAppContainer.style.display = 'block';
+                mainAppContainer.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important;';
             }
 
             // Trigger instant layout recalculation to prevent blank dark boxes on load
@@ -173,13 +173,20 @@ if (typeof firebase !== 'undefined' && firebase.auth) {
         } else {
             currentUser = null;
             window.currentUser = null;
-            if (saasLandingPage) saasLandingPage.classList.remove('hidden');
+            if (saasLandingPage) {
+                saasLandingPage.classList.remove('hidden');
+                saasLandingPage.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
+            }
             if (window.closeAuthModal) window.closeAuthModal();
-            if (mainAppContainer) mainAppContainer.classList.add('hidden');
+            if (mainAppContainer) {
+                mainAppContainer.classList.add('hidden');
+                mainAppContainer.style.cssText = 'display: none !important; visibility: hidden !important; opacity: 0 !important;';
+            }
             if (socket) {
                 socket.disconnect();
             }
         }
+
 
     });
 }
