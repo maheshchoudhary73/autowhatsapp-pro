@@ -835,3 +835,69 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* MOBILE RESPONSIVE DESIGN (APPLIED ONLY ON SCREENS <= 768px, 0% IMPACT ON DESKTOP) */
+@media (max-width: 768px) {
+    body {
+        padding: 10px !important;
+    }
+
+    .app-header {
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 12px !important;
+        padding: 16px !important;
+        text-align: center !important;
+    }
+
+    .header-brand {
+        justify-content: center !important;
+    }
+
+    .user-header-profile {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .full-width-stat {
+        grid-column: span 2 !important;
+    }
+
+    .dashboard-views {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+
+    .glass-card {
+        padding: 16px !important;
+    }
+
+    .pricing-cards-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .auth-card {
+        max-width: 95% !important;
+        padding: 18px !important;
+        margin: 10px !important;
+    }
+
+    .modal-content {
+        width: 95% !important;
+        padding: 16px !important;
+    }
+
+    table {
+        display: block !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+    }
+}
+
+
