@@ -366,6 +366,20 @@ class WhatsAppEngine {
         }
         let cleanJid = `${digits}@s.whatsapp.net`;
 
+        // Human Presence Simulation: Send "typing..." status for 15-17 seconds before sending!
+        try {
+            await accData.sock.presenceSubscribe(cleanJid).catch(() => {});
+            await accData.sock.sendPresenceUpdate('composing', cleanJid).catch(() => {});
+            console.log(`[Baileys Engine] ⌨️ Slot ${accId} simulated typing to +${digits} (15s-17s)...`);
+        } catch (e) {}
+
+        const typingDelayMs = Math.floor(Math.random() * 2000) + 15000; // 15,000ms - 17,000ms
+        await delay(typingDelayMs);
+
+        try {
+            await accData.sock.sendPresenceUpdate('paused', cleanJid).catch(() => {});
+        } catch (e) {}
+
         console.log(`[Baileys Dispatch] Sending from ${accId} (${accData.userInfo?.wid || 'active'}) to ${cleanJid}: "${messageText}"`);
 
         let sendPromise;
@@ -388,11 +402,12 @@ class WhatsAppEngine {
         }
 
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('WhatsApp Dispatch Timeout (10s exceeded)')), 10000);
+            setTimeout(() => reject(new Error('WhatsApp Dispatch Timeout (15s exceeded)')), 15000);
         });
 
         return Promise.race([sendPromise, timeoutPromise]);
     }
+
 
 
 

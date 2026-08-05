@@ -226,11 +226,12 @@ class QueueManager {
     }
 
     calculateDynamicDelayMs() {
-        const speedCapPerMin = this.stats.speedCapPerMin || 30;
-        const minIntervalMs = Math.ceil((60 * 1000) / speedCapPerMin);
-        const randomBufferMs = Math.floor(Math.random() * 1000) + 500; // 0.5s - 1.5s random jitter
-        return Math.max(minIntervalMs, randomBufferMs);
+        // Typing simulation inside engine takes 15s-17s; add 1.5s-2.5s jitter buffer between messages
+        const minIntervalMs = 1500;
+        const randomJitterMs = Math.floor(Math.random() * 1000) + 500;
+        return minIntervalMs + randomJitterMs;
     }
+
 
     start(sendMessageCallback, callbacks = {}) {
         if (!sendMessageCallback) throw new Error('sendMessageCallback is required!');
@@ -325,7 +326,7 @@ class QueueManager {
 
             const cleanDigits = pendingItem.formattedPhone.replace(/\D/g, '');
 
-            this.emitLog('success', `✅ Sent to +${pendingItem.rawPhone || cleanDigits} from slot (${selectedAccId})`, cleanDigits);
+            this.emitLog('success', `✅ Sent to +${cleanDigits} from slot (${selectedAccId})`, cleanDigits);
             this.emitProgress();
 
         } catch (err) {
@@ -337,9 +338,10 @@ class QueueManager {
 
             const cleanDigits = pendingItem.formattedPhone.replace(/\D/g, '');
 
-            this.emitLog('error', `❌ Failed sending to +${pendingItem.rawPhone || cleanDigits}: ${err.message}`, cleanDigits);
+            this.emitLog('error', `❌ Failed sending to +${cleanDigits}: ${err.message}`, cleanDigits);
             this.emitProgress();
         }
+
 
         const delayMs = (this.stats.sent === 0) ? 100 : this.calculateDynamicDelayMs();
         this.scheduleNext(delayMs);
